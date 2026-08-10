@@ -219,7 +219,6 @@ async function login() {
   errorEl.textContent = '';
   
   if (!email || !password) { errorEl.textContent = 'Veuillez remplir tous les champs'; return; }
-  }
   
   try {
     const { data, error } = await sbClient.auth.signInWithPassword({ email, password });
@@ -515,7 +514,6 @@ function showToast(msg, type) {
 // CHECK SESSION ON LOAD
 window.addEventListener('load', async () => {
   const initialized = initSupabase();
-  if (!initialized) {
   if (sbClient) {
     const { data: { session } } = await sbClient.auth.getSession();
     if (session) {
