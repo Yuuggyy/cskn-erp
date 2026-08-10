@@ -210,6 +210,159 @@ const NAV_CONFIG = {
   ]
 };
 
+// TRADUCTION DES NOMS DE COLONNES (base de données -> français lisible)
+const COLUMN_LABELS = {
+  // Production
+  date_prod: 'Date de production',
+  shift: 'Poste',
+  canne_broyee_t: 'Canne broyée (t)',
+  sucre_blanc_t: 'Sucre blanc (t)',
+  sucre_roux_t: 'Sucre roux (t)',
+  melasse_t: 'Mélasse (t)',
+  bagasse_t: 'Bagasse (t)',
+  rendement_pct: 'Rendement (%)',
+  humidite_canne_pct: 'Humidité canne (%)',
+  purete_jus_pct: 'Pureté du jus (%)',
+  pol_canne: 'Pol canne (saccharose)',
+  arrets_minutes: 'Arrêts (minutes)',
+  cause_arret: 'Cause arrêt',
+  // Parcelles
+  code: 'Code',
+  nom: 'Nom',
+  superficie_ha: 'Superficie (ha)',
+  variete_canne: 'Variété de canne',
+  maturite_pct: 'Maturité (%)',
+  statut: 'Statut',
+  secteur: 'Secteur',
+  // Contrôle qualité
+  lot_reference: 'Lot de référence',
+  conforme: 'Conforme',
+  humidite_pct: 'Humidité (%)',
+  polarite: 'Polarité',
+  ph: 'pH',
+  niveau_alerte: "Niveau d'alerte",
+  observations: 'Observations',
+  recommandations: 'Recommandations',
+  // Commandes & ventes
+  numero_cmd: 'N° commande',
+  client_nom: 'Nom du client',
+  produit: 'Produit',
+  quantite_t: 'Quantité (t)',
+  prix: 'Prix',
+  montant_total_usd: 'Montant total (USD)',
+  destination: 'Destination',
+  // Livraisons
+  numero_livraison: 'N° livraison',
+  transporteur: 'Transporteur',
+  heure_depart: 'Heure de départ',
+  heure_arrivee: "Heure d'arrivée",
+  // Employés
+  matricule: 'Matricule',
+  nom_complet: 'Nom complet',
+  departement: 'Département',
+  poste: 'Poste',
+  salaire_base_usd: 'Salaire de base (USD)',
+  salaire_net_usd: 'Salaire net (USD)',
+  primes_usd: 'Primes (USD)',
+  deductions_usd: 'Déductions (USD)',
+  // Présences
+  heures_travaillees: 'Heures travaillées',
+  // Congés
+  nb_jours: 'Nombre de jours',
+  // Équipements
+  marque: 'Marque',
+  modele: 'Modèle',
+  emplacement: 'Emplacement',
+  etat: 'État',
+  etat_global: 'État global',
+  // Maintenance
+  duree_heures: 'Durée (heures)',
+  // Finances
+  montant: 'Montant',
+  montant_usd: 'Montant (USD)',
+  cout: 'Coût',
+  cout_usd: 'Coût (USD)',
+  budget_usd: 'Budget (USD)',
+  budget_estime_usd: 'Budget estimé (USD)',
+  // Stocks
+  quantite_stock: 'Quantité en stock',
+  seuil_alerte: "Seuil d'alerte",
+  fournisseur: 'Fournisseur',
+  // Intrants
+  categorie: 'Catégorie',
+  // Météo
+  temperature_c: 'Température (°C)',
+  precipitation_mm: 'Précipitations (mm)',
+  vent_kmh: 'Vent (km/h)',
+  // Campagnes
+  saison: 'Saison',
+  date_debut: 'Date de début',
+  date_fin: 'Date de fin',
+  superficie_totale_ha: 'Superficie totale (ha)',
+  rendement_prevu_t_ha: 'Rendement prévu (t/ha)',
+  // Projets
+  titre: 'Titre',
+  soumissionnaire: 'Soumissionnaire',
+  // Analyses sol
+  azote_mg_kg: 'Azote (mg/kg)',
+  phosphore_mg_kg: 'Phosphore (mg/kg)',
+  potassium_mg_kg: 'Potassium (mg/kg)',
+  // Documents
+  taille_ko: 'Taille (Ko)',
+  // Journaux
+  activite: 'Activité',
+  description: 'Description',
+  notes: 'Notes',
+  annee: 'Année',
+  mois: 'Mois',
+  localisation: 'Localisation',
+  lieu: 'Lieu',
+  conditions: 'Conditions',
+  documents: 'Documents',
+  parcelles_concernees: 'Parcelles concernées',
+  record_id: 'ID enregistrement',
+  adresse_ip: 'Adresse IP',
+};
+
+
+// TRADUCTION DES NOMS DE TABLES
+const TABLE_LABELS = {
+  parcelles: 'Parcelles',
+  production_journaliere: 'Production journalière',
+  controles_qualite: 'Contrôle qualité',
+  commandes_ventes: 'Commandes & ventes',
+  livraisons: 'Livraisons',
+  employes: 'Employés',
+  presences: 'Présences',
+  paies: 'Paies',
+  conges: 'Congés',
+  formations: 'Formations',
+  equipements: 'Équipements',
+  interventions_maintenance: 'Interventions de maintenance',
+  transactions_financieres: 'Transactions financières',
+  stocks_produits: 'Stocks de produits',
+  intrants_agricoles: 'Intrants agricoles',
+  donnees_meteo: 'Données météo',
+  campagnes_agricoles: 'Campagnes agricoles',
+  projets_publics: 'Projets publics',
+  documents: 'Documents',
+  parametres_systeme: 'Paramètres système',
+  journaux_systeme: 'Journaux système',
+  rapports_terrain: 'Rapports terrain',
+  analyses_sol: 'Analyses de sol',
+  journal_campagne: 'Journal de campagne',
+  notifications: 'Notifications',
+};
+
+function tableLabel(table) {
+  return TABLE_LABELS[table] || table.replace(/_/g, ' ');
+}
+
+function colLabel(col) {
+  return COLUMN_LABELS[col] || col.replace(/_/g, ' ');
+}
+
+
 
 // LOGIN
 async function login() {
@@ -347,7 +500,7 @@ async function loadDashboard() {
     // Production table
     let prodHtml = '<div class="card"><h3 style="margin-bottom:16px;color:var(--green-dark)">Production récente (7 jours)</h3>';
     if (production && production.length > 0) {
-      prodHtml += '<table><thead><tr><th>Date</th><th>Shift</th><th>Canne (t)</th><th>Sucre blanc (t)</th><th>Sucre roux (t)</th><th>Mélasse (t)</th><th>Rendement</th></tr></thead><tbody>';
+      prodHtml += '<table><thead><tr><th>Date</th><th>Poste</th><th>Canne (t)</th><th>Sucre blanc (t)</th><th>Sucre roux (t)</th><th>Mélasse (t)</th><th>Rendement</th></tr></thead><tbody>';
       production.forEach(p => {
         prodHtml += `<tr><td>${p.date_prod || '-'}</td><td>${p.shift || '-'}</td><td>${p.canne_broyee_t || 0}</td><td>${p.sucre_blanc_t || 0}</td><td>${p.sucre_roux_t || 0}</td><td>${p.melasse_t || 0}</td><td>${p.rendement_pct || 0}%</td></tr>`;
       });
@@ -408,7 +561,7 @@ async function loadTablePage(table, title, columns) {
       html += '<div class="card"><div class="empty">Aucune donnée disponible</div></div>';
     } else {
       html += '<table><thead><tr>';
-      columns.forEach(col => { html += `<th>${col.replace(/_/g, ' ')}</th>`; });
+      columns.forEach(col => { html += `<th>${colLabel(col)}</th>`; });
       if (canWrite) html += '<th>Actions</th>';
       html += '</tr></thead><tbody>';
       data.forEach(row => {
@@ -441,9 +594,9 @@ async function loadTablePage(table, title, columns) {
 // ADD MODAL
 function openAddModal(table, columns) {
   const modal = document.getElementById('modalContent');
-  let html = `<h3>Ajouter - ${table.replace(/_/g, ' ')}</h3><form id="addForm">`;
+  let html = `<h3>Ajouter - ${tableLabel(table)}</h3><form id="addForm">`;
   columns.forEach(col => {
-    const label = col.replace(/_/g, ' ');
+    const label = colLabel(col);
     html += `<div class="form-group"><label>${label}</label>`;
     if (col === 'statut') {
       html += `<select name="${col}"><option value="actif">actif</option><option value="en_attente">en_attente</option><option value="planifiee">planifiee</option></select>`;
