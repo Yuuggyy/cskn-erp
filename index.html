@@ -119,7 +119,7 @@ tr:hover td { background: #f8faf8; }
 <script>
 // SUPABASE CONFIG
 const SUPABASE_URL = 'https://bbincwspuiykgvfwajty.supabase.co';
-let SUPABASE_ANON_KEY = localStorage.getItem('cskn_anon_key') || '';
+let SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJiaW5jd3NwdWl5a2d2ZndhanR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU2OTMzMjIsImV4cCI6MjA4MTI2OTMyMn0.KXfx67xkZ5iH9Fb7XiYt6OrmlJTPpPCV0vuMcDMq4cE';
 
 let supabase = null;
 let currentUser = null;
@@ -127,11 +127,8 @@ let currentProfile = null;
 
 // Initialize Supabase
 function initSupabase() {
-  if (SUPABASE_ANON_KEY) {
-    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    return true;
-  }
-  return false;
+  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  return true;
 }
 
 // Navigation config by role
