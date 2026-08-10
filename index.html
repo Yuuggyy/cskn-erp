@@ -438,9 +438,9 @@ async function loadPage(pageId) {
       case 'parcelles': await loadTablePage('parcelles', 'Parcelles', ['code','nom','superficie_ha','variete_canne','maturite_pct','statut','secteur']); break;
       case 'production': await loadTablePage('production_journaliere', 'Production Journalière', ['date_prod','shift','canne_broyee_t','sucre_blanc_t','sucre_roux_t','rendement_pct']); break;
       case 'qualite': await loadTablePage('controles_qualite', 'Contrôles Qualité', ['date_controle','lot_reference','produit','humidite_pct','polarite','conforme']); break;
-      case 'ventes': await loadTablePage('commandes_ventes', 'Commandes & Ventes', ['numero_cmd','client_nom','client_type','produit','quantite_t','montant_total_usd','statut']); break;
+      case 'ventes': await loadTablePage('commandes_ventes', 'Commandes & Ventes', ['numero_cmd','client_nom','client_type','produit','quantite_t','prix_unitaire_usd','montant_total_usd','statut']); break;
       case 'livraisons': await loadTablePage('livraisons', 'Livraisons', ['numero_livraison','date_livraison','transporteur','destination','quantite_t','statut']); break;
-      case 'employes': await loadTablePage('employes', 'Employés', ['matricule','nom_complet','poste','departement','type_contrat','salaire_base_usd','statut']); break;
+      case 'employes': await loadTablePage('employes', 'Employés', ['matricule','nom_complet','poste','departement','date_embauche','type_contrat','salaire_base_usd','statut']); break;
       case 'presences': await loadTablePage('presences', 'Présences', ['date_presence','heure_arrivee','heure_depart','statut','heures_travaillees']); break;
       case 'paies': await loadTablePage('paies', 'Paies', ['mois','annee','salaire_base_usd','primes_usd','deductions_usd','salaire_net_usd','statut']); break;
       case 'conges': await loadTablePage('conges', 'Congés', ['type_conge','date_debut','date_fin','nb_jours','statut']); break;
@@ -1008,8 +1008,12 @@ async function loadTablePage(table, title, columns) {
         html += '<tr>';
         columns.forEach(col => {
           let val = row[col] || '-';
-          if (col === 'statut' || col === 'niveau_alerte' || col === 'etat' || col === 'conforme') {
-            const cls = ['actif','conforme','present','livree','terminee','validee','payee','approuve','certifie','excellent','bon'].includes(val) ? 'active' :
+          if (col === 'conforme') {
+            const isConform = val === true || val === 'true' || val === 't';
+            const cls = isConform ? 'active' : 'alert';
+            html += `<td><span class="badge ${cls}">${isConform ? 'Oui' : 'Non'}</span></td>`;
+          } else if (col === 'statut' || col === 'niveau_alerte' || col === 'etat') {
+            const cls = ['actif','present','livree','terminee','validee','payee','approuve','certifie','excellent','bon'].includes(val) ? 'active' :
               ['alerte','critique','retard','suspendu','annulee','refuse','mauvais','hors_service'].includes(val) ? 'alert' :
               ['en_attente','planifiee','en_cours','calculee','inscrit','moyen'].includes(val) ? 'pending' : 'normal';
             html += `<td><span class="badge ${cls}">${val}</span></td>`;
@@ -1041,8 +1045,14 @@ function openAddModal(table, columns) {
   columns.forEach(col => {
     const label = colLabel(col);
     html += `<div class="form-group"><label>${label}</label>`;
-    if (col === 'statut') {
-      html += `<select name="${col}"><option value="actif">actif</option><option value="en_attente">en_attente</option><option value="planifiee">planifiee</option></select>`;
+    if (col === 'conforme') {
+      html += `<select name="${col}"><option value="true">Oui</option><option value="false">Non</option></select>`;
+    } else if (col === 'statut') {
+      html += `<select name="${col}"><option value="actif">actif</option><option value="en_attente">en_attente</option><option value="planifiee">planifiee</option><option value="en_cours">en_cours</option><option value="terminee">terminee</option><option value="livree">livree</option><option value="suspendu">suspendu</option><option value="payee">payee</option><option value="calculee">calculee</option></select>`;
+    } else if (col === 'saison') {
+      html += `<select name="${col}"><option value="sèche">sèche</option><option value="pluies">pluies</option></select>`;
+    } else if (col === 'type_rapport') {
+      html += `<select name="${col}"><option value="incident">incident</option><option value="maintenance">maintenance</option><option value="securite">sécurité</option><option value="production">production</option><option value="qualite">qualité</option><option value="logistique">logistique</option><option value="etat_culture">état culture</option><option value="etat_sol">état sol</option><option value="autre">autre</option></select>`;
     } else if (col.includes('date')) {
       html += `<input type="date" name="${col}">`;
     } else if (col.includes('prix') || col.includes('montant') || col.includes('salaire') || col.includes('cout') || col.includes('quantite') || col.includes('superficie') || col.includes('ha')) {
@@ -1064,7 +1074,9 @@ function openAddModal(table, columns) {
     const data = {};
     for (let [key, value] of formData.entries()) {
       if (value) {
-        if (key.includes('prix') || key.includes('montant') || key.includes('salaire') || key.includes('cout') || key.includes('quantite') || key.includes('superficie') || key.includes('ha') || key.includes('t')) {
+        if (key === 'conforme') {
+          data[key] = value === 'true';
+        } else if (key.includes('prix') || key.includes('montant') || key.includes('salaire') || key.includes('cout') || key.includes('quantite') || key.includes('superficie') || key.includes('ha') || key.includes('_t') || key.includes('_pct') || key.includes('_usd')) {
           data[key] = parseFloat(value);
         } else {
           data[key] = value;
@@ -1100,10 +1112,21 @@ function openEditModal(table, columns, recordId) {
       const label = colLabel(col);
       const currentVal = row[col] !== null && row[col] !== undefined ? String(row[col]) : '';
       html += `<div class="form-group"><label>${label}</label>`;
-      if (col === 'statut') {
-        const statuses = ['actif','en_attente','planifiee','en_cours','terminee','livree','suspendu','absent','present','approuve','payee','calculee'];
+      if (col === 'conforme') {
+        html += `<select name="${col}"><option value="true" ${currentVal === 'true' || currentVal === 'True' || currentVal === 't' ? 'selected' : ''}>Oui</option><option value="false" ${currentVal === 'false' || currentVal === 'False' || currentVal === 'f' ? 'selected' : ''}>Non</option></select>`;
+      } else if (col === 'statut') {
+        const statuses = ['actif','en_attente','planifiee','en_cours','terminee','livree','suspendu','absent','present','approuve','payee','calculee','inscrit'];
         html += `<select name="${col}">`;
         statuses.forEach(s => {
+          html += `<option value="${s}" ${currentVal === s ? 'selected' : ''}>${s}</option>`;
+        });
+        html += `</select>`;
+      } else if (col === 'saison') {
+        html += `<select name="${col}"><option value="sèche" ${currentVal === 'sèche' ? 'selected' : ''}>sèche</option><option value="pluies" ${currentVal === 'pluies' ? 'selected' : ''}>pluies</option></select>`;
+      } else if (col === 'type_rapport') {
+        const types = ['incident','maintenance','securite','production','qualite','logistique','etat_culture','etat_sol','autre'];
+        html += `<select name="${col}">`;
+        types.forEach(s => {
           html += `<option value="${s}" ${currentVal === s ? 'selected' : ''}>${s}</option>`;
         });
         html += `</select>`;
@@ -1138,7 +1161,9 @@ function openEditModal(table, columns, recordId) {
       const data = {};
       for (let [key, value] of formData.entries()) {
         if (value !== '' && value !== null) {
-          if (key.includes('prix') || key.includes('montant') || key.includes('salaire') || key.includes('cout') || key.includes('quantite') || key.includes('superficie') || key.includes('ha') || key.includes('_t') || key.includes('_pct') || key.includes('_usd')) {
+          if (key === 'conforme') {
+            data[key] = value === 'true';
+          } else if (key.includes('prix') || key.includes('montant') || key.includes('salaire') || key.includes('cout') || key.includes('quantite') || key.includes('superficie') || key.includes('ha') || key.includes('_t') || key.includes('_pct') || key.includes('_usd')) {
             data[key] = parseFloat(value);
           } else {
             data[key] = value;
