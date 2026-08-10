@@ -18,7 +18,6 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); co
 .login-box button { width: 100%; padding: 14px; background: var(--green); color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; font-weight: 600; }
 .login-box button:hover { background: var(--green-dark); }
 .login-box .error { color: var(--red); margin-bottom: 16px; font-size: 14px; text-align: center; }
-.login-box .demo { margin-top: 20px; padding: 12px; background: #f0f7f4; border-radius: 8px; font-size: 12px; color: var(--gray); }
 .app { display: none; }
 .sidebar { position: fixed; left: 0; top: 0; width: 250px; height: 100vh; background: var(--green-dark); padding: 20px 0; overflow-y: auto; }
 .sidebar .logo { color: white; font-size: 18px; font-weight: 700; padding: 0 24px 24px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 16px; }
@@ -78,24 +77,9 @@ tr:hover td { background: #f8faf8; }
     <h1>CSKN ERP</h1>
     <p>Compagnie Sucrière de Kwilu-Ngongo</p>
     <div class="error" id="loginError"></div>
-    <div id="configSection" style="display:none;margin-bottom:20px;padding:16px;background:#f0f7f4;border-radius:8px">
-      <label style="font-size:13px;font-weight:600;color:#666;display:block;margin-bottom:8px">Clé anonyme Supabase (anon public)</label>
-      <input type="text" id="anonKeyInput" placeholder="eyJhbGciOi..." style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:12px;margin-bottom:10px">
-      <button onclick="saveAnonKey()" style="width:100%;padding:10px;background:#1a7a3a;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px">Sauvegarder la clé</button>
-    </div>
     <input type="email" id="loginEmail" placeholder="Email">
     <input type="password" id="loginPassword" placeholder="Mot de passe">
     <button onclick="login()">Se connecter</button>
-    <div class="demo">
-      <strong>Comptes de test:</strong><br>
-      j.mukendi@cskn.cd (admin)<br>
-      p.kabongo@cskn.cd (chef_agricole)<br>
-      m.mbuyi@cskn.cd (directeur)<br>
-      Mot de passe: CSKN2026
-    </div>
-    <div style="margin-top:12px;text-align:center">
-      <a href="#" onclick="toggleConfig();return false" style="color:#1a7a3a;font-size:12px">Configurer la clé Supabase</a>
-    </div>
   </div>
 </div>
 
@@ -121,13 +105,13 @@ tr:hover td { background: #f8faf8; }
 const SUPABASE_URL = 'https://bbincwspuiykgvfwajty.supabase.co';
 let SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJiaW5jd3NwdWl5a2d2ZndhanR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU2OTMzMjIsImV4cCI6MjA4MTI2OTMyMn0.KXfx67xkZ5iH9Fb7XiYt6OrmlJTPpPCV0vuMcDMq4cE';
 
-let supabase = null;
+let sbClient = null;
 let currentUser = null;
 let currentProfile = null;
 
 // Initialize Supabase
 function initSupabase() {
-  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   return true;
 }
 
@@ -227,22 +211,6 @@ const NAV_CONFIG = {
 };
 
 
-function toggleConfig() {
-  const el = document.getElementById('configSection');
-  el.style.display = el.style.display === 'none' ? 'block' : 'none';
-}
-
-function saveAnonKey() {
-  const key = document.getElementById('anonKeyInput').value.trim();
-  if (!key) { alert('Veuillez coller la clé anon'); return; }
-  localStorage.setItem('cskn_anon_key', key);
-  SUPABASE_ANON_KEY = key;
-  initSupabase();
-  document.getElementById('configSection').style.display = 'none';
-  document.getElementById('loginError').textContent = '';
-  showToast('Clé sauvegardée! Vous pouvez vous connecter.', 'success');
-}
-
 // LOGIN
 async function login() {
   const email = document.getElementById('loginEmail').value.trim();
@@ -251,20 +219,16 @@ async function login() {
   errorEl.textContent = '';
   
   if (!email || !password) { errorEl.textContent = 'Veuillez remplir tous les champs'; return; }
-  if (!supabase) {
-    document.getElementById('configSection').style.display = 'block';
-    errorEl.textContent = 'Veuillez configurer la clé Supabase ci-dessous';
-    return;
   }
   
   try {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await sbClient.auth.signInWithPassword({ email, password });
     if (error) throw error;
     
     currentUser = data.user;
     
     // Fetch profile
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile, error: profileError } = await sbClient
       .from('profiles').select('*').eq('id', data.user.id).single();
     
     if (profileError) throw profileError;
@@ -283,7 +247,7 @@ async function login() {
 }
 
 function logout() {
-  if (supabase) supabase.auth.signOut();
+  if (sbClient) sbClient.auth.signOut();
   currentUser = null; currentProfile = null;
   document.getElementById('app').style.display = 'none';
   document.getElementById('loginScreen').style.display = 'flex';
@@ -354,12 +318,12 @@ async function loadDashboard() {
   
   try {
     // Get parameters
-    const { data: params } = await supabase.from('parametres_systeme').select('*');
-    const { data: parcelles } = await supabase.from('parcelles').select('*');
-    const { data: production } = await supabase.from('production_journaliere').select('*').order('date_prod', { ascending: false }).limit(7);
-    const { data: employes } = await supabase.from('employes').select('*');
-    const { data: equipements } = await supabase.from('equipements').select('*');
-    const { data: notifications } = await supabase.from('notifications').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(5);
+    const { data: params } = await sbClient.from('parametres_systeme').select('*');
+    const { data: parcelles } = await sbClient.from('parcelles').select('*');
+    const { data: production } = await sbClient.from('production_journaliere').select('*').order('date_prod', { ascending: false }).limit(7);
+    const { data: employes } = await sbClient.from('employes').select('*');
+    const { data: equipements } = await sbClient.from('equipements').select('*');
+    const { data: notifications } = await sbClient.from('notifications').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(5);
     
     const paramMap = {};
     params?.forEach(p => paramMap[p.cle] = p.valeur);
@@ -417,7 +381,7 @@ async function loadTablePage(table, title, columns) {
   main.innerHTML = '<div class="loading">Chargement...</div>';
   
   try {
-    const { data, error } = await supabase.from(table).select('*').order('created_at', { ascending: false }).limit(50);
+    const { data, error } = await sbClient.from(table).select('*').order('created_at', { ascending: false }).limit(50);
     if (error) throw error;
     
     const canWrite = ['admin', 'directeur'].includes(currentProfile.role) || 
@@ -513,7 +477,7 @@ function openAddModal(table, columns) {
       }
     }
     try {
-      const { error } = await supabase.from(table).insert([data]);
+      const { error } = await sbClient.from(table).insert([data]);
       if (error) throw error;
       closeModal();
       showToast('Ajouté avec succès', 'success');
@@ -531,7 +495,7 @@ function closeModal() {
 async function deleteRecord(table, id) {
   if (!confirm('Supprimer cet enregistrement ?')) return;
   try {
-    const { error } = await supabase.from(table).delete().eq('id', id);
+    const { error } = await sbClient.from(table).delete().eq('id', id);
     if (error) throw error;
     showToast('Supprimé', 'success');
     loadPage(document.querySelector('.nav-item.active')?.id?.replace('nav-', '') || 'dashboard');
@@ -552,13 +516,11 @@ function showToast(msg, type) {
 window.addEventListener('load', async () => {
   const initialized = initSupabase();
   if (!initialized) {
-    document.getElementById('configSection').style.display = 'block';
-  }
-  if (supabase) {
-    const { data: { session } } = await supabase.auth.getSession();
+  if (sbClient) {
+    const { data: { session } } = await sbClient.auth.getSession();
     if (session) {
       currentUser = session.user;
-      const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+      const { data: profile } = await sbClient.from('profiles').select('*').eq('id', session.user.id).single();
       if (profile) {
         currentProfile = profile;
         document.getElementById('loginScreen').style.display = 'none';
