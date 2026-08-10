@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CSKN ERP - Compagnie Sucrière de Kwilu-Ngongo</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root { --green: #1a7a3a; --green-dark: #0f5226; --gold: #c9a227; --bg: #f4f6f8; --card: #fff; --text: #1a1a1a; --gray: #666; --border: #e0e0e0; --red: #e63946; --blue: #2a6f97; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); }
+.login-container { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(135deg, var(--green-dark), var(--green)); }
+.login-box { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); width: 400px; max-width: 90%; }
+.login-box h1 { color: var(--green-dark); margin-bottom: 5px; font-size: 24px; }
+.login-box p { color: var(--gray); margin-bottom: 30px; font-size: 14px; }
+.login-box input { width: 100%; padding: 12px 16px; margin-bottom: 16px; border: 1px solid var(--border); border-radius: 8px; font-size: 15px; }
+.login-box input:focus { outline: none; border-color: var(--green); }
+.login-box button { width: 100%; padding: 14px; background: var(--green); color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; font-weight: 600; }
+.login-box button:hover { background: var(--green-dark); }
+.login-box .error { color: var(--red); margin-bottom: 16px; font-size: 14px; text-align: center; }
+.login-box .demo { margin-top: 20px; padding: 12px; background: #f0f7f4; border-radius: 8px; font-size: 12px; color: var(--gray); }
+.app { display: none; }
+.sidebar { position: fixed; left: 0; top: 0; width: 250px; height: 100vh; background: var(--green-dark); padding: 20px 0; overflow-y: auto; }
+.sidebar .logo { color: white; font-size: 18px; font-weight: 700; padding: 0 24px 24px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 16px; }
+.sidebar .logo span { color: var(--gold); }
+.sidebar .user-info { padding: 0 24px 16px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 16px; }
+.sidebar .user-info .name { color: white; font-size: 14px; font-weight: 600; }
+.sidebar .user-info .role { color: var(--gold); font-size: 12px; text-transform: capitalize; }
+.sidebar .nav-item { padding: 12px 24px; color: rgba(255,255,255,0.7); cursor: pointer; display: flex; align-items: center; gap: 10px; font-size: 14px; transition: all 0.2s; }
+.sidebar .nav-item:hover { background: rgba(255,255,255,0.1); color: white; }
+.sidebar .nav-item.active { background: var(--green); color: white; border-left: 3px solid var(--gold); }
+.sidebar .nav-item .icon { font-size: 18px; }
+.sidebar .logout { position: absolute; bottom: 20px; left: 0; right: 0; padding: 12px 24px; color: rgba(255,255,255,0.6); cursor: pointer; font-size: 13px; }
+.sidebar .logout:hover { color: white; }
+.main { margin-left: 250px; padding: 30px; min-height: 100vh; }
+.main h2 { color: var(--green-dark); margin-bottom: 20px; }
+.card { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 20px; }
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
+.stat-card { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border-left: 4px solid var(--green); }
+.stat-card .label { color: var(--gray); font-size: 13px; text-transform: uppercase; }
+.stat-card .value { font-size: 28px; font-weight: 700; color: var(--green-dark); margin-top: 8px; }
+.stat-card .unit { font-size: 14px; color: var(--gray); }
+table { width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+th { background: var(--green-dark); color: white; padding: 14px 16px; text-align: left; font-size: 13px; text-transform: uppercase; }
+td { padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 14px; }
+tr:hover td { background: #f8faf8; }
+.badge { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+.badge.active { background: #d4edda; color: #155724; }
+.badge.alert { background: #f8d7da; color: #721c24; }
+.badge.normal { background: #d1ecf1; color: #0c5460; }
+.badge.pending { background: #fff3cd; color: #856404; }
+.btn { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; }
+.btn-primary { background: var(--green); color: white; }
+.btn-primary:hover { background: var(--green-dark); }
+.btn-danger { background: var(--red); color: white; }
+.btn-sm { padding: 6px 14px; font-size: 12px; }
+.form-group { margin-bottom: 16px; }
+.form-group label { display: block; margin-bottom: 6px; font-size: 13px; font-weight: 600; color: var(--gray); }
+.form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; }
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: var(--green); }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 100; justify-content: center; align-items: center; }
+.modal { background: white; border-radius: 12px; padding: 30px; width: 500px; max-width: 90%; max-height: 80vh; overflow-y: auto; }
+.modal h3 { color: var(--green-dark); margin-bottom: 20px; }
+.toast { position: fixed; top: 20px; right: 20px; padding: 16px 24px; border-radius: 8px; color: white; font-size: 14px; z-index: 200; animation: slideIn 0.3s; }
+.toast.success { background: var(--green); }
+.toast.error { background: var(--red); }
+@keyframes slideIn { from { transform: translateX(400px); } to { transform: translateX(0); } }
+.loading { text-align: center; padding: 40px; color: var(--gray); }
+.empty { text-align: center; padding: 40px; color: var(--gray); }
+.add-btn { margin-bottom: 16px; }
+</style>
+</head>
+<body>
+
+<div class="login-container" id="loginScreen">
+  <div class="login-box">
+    <h1>CSKN ERP</h1>
+    <p>Compagnie Sucrière de Kwilu-Ngongo</p>
+    <div class="error" id="loginError"></div>
+    <div id="configSection" style="display:none;margin-bottom:20px;padding:16px;background:#f0f7f4;border-radius:8px">
+      <label style="font-size:13px;font-weight:600;color:#666;display:block;margin-bottom:8px">Clé anonyme Supabase (anon public)</label>
+      <input type="text" id="anonKeyInput" placeholder="eyJhbGciOi..." style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:12px;margin-bottom:10px">
+      <button onclick="saveAnonKey()" style="width:100%;padding:10px;background:#1a7a3a;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px">Sauvegarder la clé</button>
+    </div>
+    <input type="email" id="loginEmail" placeholder="Email">
+    <input type="password" id="loginPassword" placeholder="Mot de passe">
+    <button onclick="login()">Se connecter</button>
+    <div class="demo">
+      <strong>Comptes de test:</strong><br>
+      j.mukendi@cskn.cd (admin)<br>
+      p.kabongo@cskn.cd (chef_agricole)<br>
+      m.mbuyi@cskn.cd (directeur)<br>
+      Mot de passe: CSKN2026
+    </div>
+    <div style="margin-top:12px;text-align:center">
+      <a href="#" onclick="toggleConfig();return false" style="color:#1a7a3a;font-size:12px">Configurer la clé Supabase</a>
+    </div>
+  </div>
+</div>
+
+<div class="app" id="app">
+  <div class="sidebar" id="sidebar">
+    <div class="logo">CSKN <span>ERP</span></div>
+    <div class="user-info">
+      <div class="name" id="userName"></div>
+      <div class="role" id="userRole"></div>
+    </div>
+    <div id="navMenu"></div>
+    <div class="logout" onclick="logout()">← Déconnexion</div>
+  </div>
+  <div class="main" id="mainContent"></div>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" id="modalContent"></div>
+</div>
+
+<script>
+// SUPABASE CONFIG
+const SUPABASE_URL = 'https://bbincwspuiykgvfwajty.supabase.co';
+let SUPABASE_ANON_KEY = localStorage.getItem('cskn_anon_key') || '';
+
+let supabase = null;
+let currentUser = null;
+let currentProfile = null;
+
+// Initialize Supabase
+function initSupabase() {
+  if (SUPABASE_ANON_KEY) {
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    return true;
+  }
+  return false;
+}
+
+// Navigation config by role
+const NAV_CONFIG = {
+  admin: [
+    { id: 'dashboard', label: 'Tableau de bord', icon: '📊' },
+    { id: 'parcelles', label: 'Parcelles', icon: '🌱' },
+    { id: 'production', label: 'Production', icon: '🏭' },
+    { id: 'qualite', label: 'Contrôle Qualité', icon: '✅' },
+    { id: 'ventes', label: 'Commandes & Ventes', icon: '📦' },
+    { id: 'livraisons', label: 'Livraisons', icon: '🚚' },
+    { id: 'employes', label: 'Employés', icon: '👥' },
+    { id: 'presences', label: 'Présences', icon: '⏰' },
+    { id: 'paies', label: 'Paies', icon: '💰' },
+    { id: 'conges', label: 'Congés', icon: '🏖️' },
+    { id: 'formations', label: 'Formations', icon: '📚' },
+    { id: 'equipements', label: 'Équipements', icon: '⚙️' },
+    { id: 'maintenance', label: 'Maintenance', icon: '🔧' },
+    { id: 'finances', label: 'Finances', icon: '💸' },
+    { id: 'stocks', label: 'Stocks', icon: '📋' },
+    { id: 'intrants', label: 'Intrants Agricoles', icon: '🌾' },
+    { id: 'meteo', label: 'Météo', icon: '🌤️' },
+    { id: 'campagnes', label: 'Campagnes', icon: '📅' },
+    { id: 'projets', label: 'Projets Publics', icon: '🏛️' },
+    { id: 'documents', label: 'Documents', icon: '📄' },
+    { id: 'parametres', label: 'Paramètres', icon: '⚙️' },
+    { id: 'journaux', label: 'Journaux Système', icon: '📜' }
+  ],
+  directeur: [
+    { id: 'dashboard', label: 'Tableau de bord', icon: '📊' },
+    { id: 'parcelles', label: 'Parcelles', icon: '🌱' },
+    { id: 'production', label: 'Production', icon: '🏭' },
+    { id: 'qualite', label: 'Contrôle Qualité', icon: '✅' },
+    { id: 'ventes', label: 'Commandes & Ventes', icon: '📦' },
+    { id: 'livraisons', label: 'Livraisons', icon: '🚚' },
+    { id: 'employes', label: 'Employés', icon: '👥' },
+    { id: 'paies', label: 'Paies', icon: '💰' },
+    { id: 'finances', label: 'Finances', icon: '💸' },
+    { id: 'stocks', label: 'Stocks', icon: '📋' },
+    { id: 'equipements', label: 'Équipements', icon: '⚙️' },
+    { id: 'campagnes', label: 'Campagnes', icon: '📅' },
+    { id: 'documents', label: 'Documents', icon: '📄' }
+  ],
+  chef_agricole: [
+    { id: 'dashboard', label: 'Tableau de bord', icon: '📊' },
+    { id: 'parcelles', label: 'Parcelles', icon: '🌱' },
+    { id: 'rapports', label: 'Rapports Terrain', icon: '📝' },
+    { id: 'analyses', label: 'Analyses Sol', icon: '🧪' },
+    { id: 'intrants', label: 'Intrants Agricoles', icon: '🌾' },
+    { id: 'meteo', label: 'Météo', icon: '🌤️' },
+    { id: 'campagnes', label: 'Campagnes', icon: '📅' },
+    { id: 'journal_campagne', label: 'Journal Campagne', icon: '📔' }
+  ],
+  chef_production: [
+    { id: 'dashboard', label: 'Tableau de bord', icon: '📊' },
+    { id: 'production', label: 'Production', icon: '🏭' },
+    { id: 'qualite', label: 'Contrôle Qualité', icon: '✅' },
+    { id: 'stocks', label: 'Stocks', icon: '📋' },
+    { id: 'equipements', label: 'Équipements', icon: '⚙️' }
+  ],
+  agent_terrain: [
+    { id: 'dashboard', label: 'Tableau de bord', icon: '📊' },
+    { id: 'rapports', label: 'Rapports Terrain', icon: '📝' },
+    { id: 'parcelles', label: 'Parcelles', icon: '🌱' },
+    { id: 'meteo', label: 'Météo', icon: '🌤️' },
+    { id: 'journal_campagne', label: 'Journal Campagne', icon: '📔' }
+  ],
+  agent_rh: [
+    { id: 'dashboard', label: 'Tableau de bord', icon: '📊' },
+    { id: 'employes', label: 'Employés', icon: '👥' },
+    { id: 'presences', label: 'Présences', icon: '⏰' },
+    { id: 'paies', label: 'Paies', icon: '💰' },
+    { id: 'conges', label: 'Congés', icon: '🏖️' },
+    { id: 'formations', label: 'Formations', icon: '📚' }
+  ],
+  agent_qualite: [
+    { id: 'dashboard', label: 'Tableau de bord', icon: '📊' },
+    { id: 'qualite', label: 'Contrôle Qualité', icon: '✅' },
+    { id: 'production', label: 'Production', icon: '🏭' }
+  ],
+  agent_maintenance: [
+    { id: 'dashboard', label: 'Tableau de bord', icon: '📊' },
+    { id: 'equipements', label: 'Équipements', icon: '⚙️' },
+    { id: 'maintenance', label: 'Maintenance', icon: '🔧' }
+  ],
+  agent_distribution: [
+    { id: 'dashboard', label: 'Tableau de bord', icon: '📊' },
+    { id: 'ventes', label: 'Commandes & Ventes', icon: '📦' },
+    { id: 'livraisons', label: 'Livraisons', icon: '🚚' }
+  ],
+  lecteur: [
+    { id: 'dashboard', label: 'Tableau de bord', icon: '📊' },
+    { id: 'parcelles', label: 'Parcelles', icon: '🌱' },
+    { id: 'production', label: 'Production', icon: '🏭' }
+  ]
+};
+
+
+function toggleConfig() {
+  const el = document.getElementById('configSection');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function saveAnonKey() {
+  const key = document.getElementById('anonKeyInput').value.trim();
+  if (!key) { alert('Veuillez coller la clé anon'); return; }
+  localStorage.setItem('cskn_anon_key', key);
+  SUPABASE_ANON_KEY = key;
+  initSupabase();
+  document.getElementById('configSection').style.display = 'none';
+  document.getElementById('loginError').textContent = '';
+  showToast('Clé sauvegardée! Vous pouvez vous connecter.', 'success');
+}
+
+// LOGIN
+async function login() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value.trim();
+  const errorEl = document.getElementById('loginError');
+  errorEl.textContent = '';
+  
+  if (!email || !password) { errorEl.textContent = 'Veuillez remplir tous les champs'; return; }
+  if (!supabase) {
+    document.getElementById('configSection').style.display = 'block';
+    errorEl.textContent = 'Veuillez configurer la clé Supabase ci-dessous';
+    return;
+  }
+  
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    
+    currentUser = data.user;
+    
+    // Fetch profile
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles').select('*').eq('id', data.user.id).single();
+    
+    if (profileError) throw profileError;
+    currentProfile = profile;
+    
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    document.getElementById('userName').textContent = profile.full_name;
+    document.getElementById('userRole').textContent = profile.role.replace(/_/g, ' ');
+    
+    buildNav(profile.role);
+    loadPage('dashboard');
+  } catch (err) {
+    errorEl.textContent = 'Erreur: ' + (err.message || 'Connexion échouée');
+  }
+}
+
+function logout() {
+  if (supabase) supabase.auth.signOut();
+  currentUser = null; currentProfile = null;
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('loginEmail').value = '';
+  document.getElementById('loginPassword').value = '';
+}
+
+function buildNav(role) {
+  const items = NAV_CONFIG[role] || NAV_CONFIG.lecteur;
+  const navHtml = items.map(item => 
+    `<div class="nav-item" onclick="loadPage('${item.id}')" id="nav-${item.id}">
+      <span class="icon">${item.icon}</span> ${item.label}
+    </div>`
+  ).join('');
+  document.getElementById('navMenu').innerHTML = navHtml;
+}
+
+function setActiveNav(pageId) {
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  const navEl = document.getElementById('nav-' + pageId);
+  if (navEl) navEl.classList.add('active');
+}
+
+// PAGE LOADER
+async function loadPage(pageId) {
+  setActiveNav(pageId);
+  const main = document.getElementById('mainContent');
+  main.innerHTML = '<div class="loading">Chargement...</div>';
+  
+  try {
+    switch(pageId) {
+      case 'dashboard': await loadDashboard(); break;
+      case 'parcelles': await loadTablePage('parcelles', 'Parcelles', ['code','nom','superficie_ha','variete_canne','maturite_pct','statut','secteur']); break;
+      case 'production': await loadTablePage('production_journaliere', 'Production Journalière', ['date_prod','shift','canne_broyee_t','sucre_blanc_t','sucre_roux_t','rendement_pct']); break;
+      case 'qualite': await loadTablePage('controles_qualite', 'Contrôles Qualité', ['date_controle','lot_reference','produit','humidite_pct','polarite','conforme']); break;
+      case 'ventes': await loadTablePage('commandes_ventes', 'Commandes & Ventes', ['numero_cmd','client_nom','client_type','produit','quantite_t','montant_total_usd','statut']); break;
+      case 'livraisons': await loadTablePage('livraisons', 'Livraisons', ['numero_livraison','date_livraison','transporteur','destination','quantite_t','statut']); break;
+      case 'employes': await loadTablePage('employes', 'Employés', ['matricule','nom_complet','poste','departement','type_contrat','salaire_base_usd','statut']); break;
+      case 'presences': await loadTablePage('presences', 'Présences', ['date_presence','heure_arrivee','heure_depart','statut','heures_travaillees']); break;
+      case 'paies': await loadTablePage('paies', 'Paies', ['mois','annee','salaire_base_usd','primes_usd','deductions_usd','salaire_net_usd','statut']); break;
+      case 'conges': await loadTablePage('conges', 'Congés', ['type_conge','date_debut','date_fin','nb_jours','statut']); break;
+      case 'formations': await loadTablePage('formations', 'Formations', ['titre','formateur','date_debut','date_fin','lieu','budget_usd','statut']); break;
+      case 'equipements': await loadTablePage('equipements', 'Équipements', ['code','nom','type_equipement','marque','modele','etat','localisation']); break;
+      case 'maintenance': await loadTablePage('interventions_maintenance', 'Interventions Maintenance', ['date_intervention','type_intervention','description','duree_heures','cout_usd','statut']); break;
+      case 'finances': await loadTablePage('transactions_financieres', 'Transactions Financières', ['date_transaction','type_transaction','categorie','description','montant_usd','statut']); break;
+      case 'stocks': await loadTablePage('stocks_produits', 'Stocks Produits', ['produit','quantite_t','emplacement','lot_reference','date_production','statut_qualite']); break;
+      case 'intrants': await loadTablePage('intrants_agricoles', 'Intrants Agricoles', ['nom','type_intrant','quantite_stock','unite','seuil_alerte','prix_unitaire_usd','fournisseur']); break;
+      case 'meteo': await loadTablePage('donnees_meteo', 'Données Météo', ['date_observation','temperature_c','humidite_pct','precipitation_mm','vent_kmh','conditions']); break;
+      case 'campagnes': await loadTablePage('campagnes_agricoles', 'Campagnes Agricoles', ['nom','saison','date_debut','date_fin','superficie_totale_ha','rendement_prevu_t_ha','statut']); break;
+      case 'journal_campagne': await loadTablePage('journal_campagne', 'Journal de Campagne', ['date_entry','activite','parcelles_concernees','quantite','unite','observations']); break;
+      case 'rapports': await loadTablePage('rapports_terrain', 'Rapports Terrain', ['date_rapport','type_rapport','description','niveau_alerte','recommandations']); break;
+      case 'analyses': await loadTablePage('analyses_sol', 'Analyses Sol', ['date_prelevement','ph','azote_mg_kg','phosphore_mg_kg','potassium_mg_kg','etat_global']); break;
+      case 'projets': await loadTablePage('projets_publics', 'Projets Publics', ['titre','soumissionnaire','type_projet','budget_estime_usd','localisation','statut']); break;
+      case 'documents': await loadTablePage('documents', 'Documents', ['titre','type_document','categorie','format','taille_ko']); break;
+      case 'parametres': await loadTablePage('parametres_systeme', 'Paramètres Système', ['cle','valeur','type','description']); break;
+      case 'journaux': await loadTablePage('journaux_systeme', 'Journaux Système', ['action','table_concernee','record_id','adresse_ip','created_at']); break;
+      default: main.innerHTML = '<div class="empty">Page non trouvée</div>';
+    }
+  } catch (err) {
+    main.innerHTML = '<div class="card">Erreur: ' + err.message + '</div>';
+  }
+}
+
+// DASHBOARD
+async function loadDashboard() {
+  const main = document.getElementById('mainContent');
+  main.innerHTML = '<div class="loading">Chargement du tableau de bord...</div>';
+  
+  try {
+    // Get parameters
+    const { data: params } = await supabase.from('parametres_systeme').select('*');
+    const { data: parcelles } = await supabase.from('parcelles').select('*');
+    const { data: production } = await supabase.from('production_journaliere').select('*').order('date_prod', { ascending: false }).limit(7);
+    const { data: employes } = await supabase.from('employes').select('*');
+    const { data: equipements } = await supabase.from('equipements').select('*');
+    const { data: notifications } = await supabase.from('notifications').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(5);
+    
+    const paramMap = {};
+    params?.forEach(p => paramMap[p.cle] = p.valeur);
+    
+    const todayProd = production?.[0] || {};
+    const totalCanneSemaine = production?.reduce((sum, p) => sum + (parseFloat(p.canne_broyee_t) || 0), 0) || 0;
+    
+    let statsHtml = `
+      <h2>Tableau de bord</h2>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="label">Superficie totale</div><div class="value">${paramMap.superficie_totale_ha || '9772'}<span class="unit"> ha</span></div></div>
+        <div class="stat-card"><div class="label">Production annuelle</div><div class="value">${paramMap.production_annuelle_t || '81287'}<span class="unit"> t</span></div></div>
+        <div class="stat-card"><div class="label">Employés</div><div class="value">${paramMap.nombre_employes || employes?.length || '2539'}</div></div>
+        <div class="stat-card"><div class="label">Capacité broyage/jour</div><div class="value">${paramMap.capacite_broyage_jour_t || '5500'}<span class="unit"> t</span></div></div>
+        <div class="stat-card"><div class="label">Canne broyée (7j)</div><div class="value">${totalCanneSemaine.toFixed(0)}<span class="unit"> t</span></div></div>
+        <div class="stat-card"><div class="label">Parcelles actives</div><div class="value">${parcelles?.length || 0}</div></div>
+        <div class="stat-card"><div class="label">Équipements</div><div class="value">${equipements?.length || 0}</div></div>
+        <div class="stat-card"><div class="label">Taux change CDF</div><div class="value">${paramMap.taux_change_cdf || '2800'}</div></div>
+      </div>
+    `;
+    
+    // Production table
+    let prodHtml = '<div class="card"><h3 style="margin-bottom:16px;color:var(--green-dark)">Production récente (7 jours)</h3>';
+    if (production && production.length > 0) {
+      prodHtml += '<table><thead><tr><th>Date</th><th>Shift</th><th>Canne (t)</th><th>Sucre blanc (t)</th><th>Sucre roux (t)</th><th>Mélasse (t)</th><th>Rendement</th></tr></thead><tbody>';
+      production.forEach(p => {
+        prodHtml += `<tr><td>${p.date_prod || '-'}</td><td>${p.shift || '-'}</td><td>${p.canne_broyee_t || 0}</td><td>${p.sucre_blanc_t || 0}</td><td>${p.sucre_roux_t || 0}</td><td>${p.melasse_t || 0}</td><td>${p.rendement_pct || 0}%</td></tr>`;
+      });
+      prodHtml += '</tbody></table>';
+    } else {
+      prodHtml += '<div class="empty">Aucune donnée de production</div>';
+    }
+    prodHtml += '</div>';
+    
+    // Notifications
+    let notifHtml = '<div class="card"><h3 style="margin-bottom:16px;color:var(--green-dark)">Notifications récentes</h3>';
+    if (notifications && notifications.length > 0) {
+      notifications.forEach(n => {
+        notifHtml += `<div style="padding:12px;border-bottom:1px solid var(--border)"><strong>${n.titre}</strong><br><span style="color:var(--gray);font-size:13px">${n.message}</span></div>`;
+      });
+    } else {
+      notifHtml += '<div class="empty">Aucune notification</div>';
+    }
+    notifHtml += '</div>';
+    
+    main.innerHTML = statsHtml + prodHtml + notifHtml;
+  } catch (err) {
+    main.innerHTML = '<div class="card">Erreur: ' + err.message + '</div>';
+  }
+}
+
+// GENERIC TABLE PAGE
+async function loadTablePage(table, title, columns) {
+  const main = document.getElementById('mainContent');
+  main.innerHTML = '<div class="loading">Chargement...</div>';
+  
+  try {
+    const { data, error } = await supabase.from(table).select('*').order('created_at', { ascending: false }).limit(50);
+    if (error) throw error;
+    
+    const canWrite = ['admin', 'directeur'].includes(currentProfile.role) || 
+      (table === 'rapports_terrain' && ['admin','directeur','chef_agricole','agent_terrain'].includes(currentProfile.role)) ||
+      (table === 'parcelles' && ['admin','directeur','chef_agricole'].includes(currentProfile.role)) ||
+      (table === 'production_journaliere' && ['admin','directeur','chef_production'].includes(currentProfile.role)) ||
+      (table === 'controles_qualite' && ['admin','directeur','chef_production','agent_qualite'].includes(currentProfile.role)) ||
+      (table === 'commandes_ventes' && ['admin','directeur','agent_distribution'].includes(currentProfile.role)) ||
+      (table === 'employes' && ['admin','directeur','agent_rh'].includes(currentProfile.role)) ||
+      (table === 'equipements' && ['admin','directeur','agent_maintenance'].includes(currentProfile.role)) ||
+      (table === 'interventions_maintenance' && ['admin','directeur','agent_maintenance'].includes(currentProfile.role)) ||
+      (table === 'transactions_financieres' && ['admin','directeur'].includes(currentProfile.role)) ||
+      (table === 'stocks_produits' && ['admin','directeur','chef_production'].includes(currentProfile.role)) ||
+      (table === 'intrants_agricoles' && ['admin','directeur','chef_agricole'].includes(currentProfile.role)) ||
+      (table === 'campagnes_agricoles' && ['admin','directeur','chef_agricole'].includes(currentProfile.role)) ||
+      (table === 'formations' && ['admin','directeur','agent_rh'].includes(currentProfile.role));
+    
+    let html = `<h2>${title}</h2>`;
+    
+    if (canWrite) {
+      html += `<div class="add-btn"><button class="btn btn-primary" onclick="openAddModal('${table}', ${JSON.stringify(columns).replace(/"/g, '&quot;')})">+ Ajouter</button></div>`;
+    }
+    
+    if (!data || data.length === 0) {
+      html += '<div class="card"><div class="empty">Aucune donnée disponible</div></div>';
+    } else {
+      html += '<table><thead><tr>';
+      columns.forEach(col => { html += `<th>${col.replace(/_/g, ' ')}</th>`; });
+      if (canWrite) html += '<th>Actions</th>';
+      html += '</tr></thead><tbody>';
+      data.forEach(row => {
+        html += '<tr>';
+        columns.forEach(col => {
+          let val = row[col] || '-';
+          if (col === 'statut' || col === 'niveau_alerte' || col === 'etat' || col === 'conforme') {
+            const cls = ['actif','conforme','present','livree','terminee','validee','payee','approuve','certifie','excellent','bon'].includes(val) ? 'active' :
+              ['alerte','critique','retard','suspendu','annulee','refuse','mauvais','hors_service'].includes(val) ? 'alert' :
+              ['en_attente','planifiee','en_cours','calculee','inscrit','moyen'].includes(val) ? 'pending' : 'normal';
+            html += `<td><span class="badge ${cls}">${val}</span></td>`;
+          } else {
+            html += `<td>${val}</td>`;
+          }
+        });
+        if (canWrite) {
+          html += `<td><button class="btn btn-danger btn-sm" onclick="deleteRecord('${table}', '${row.id}')">Supprimer</button></td>`;
+        }
+        html += '</tr>';
+      });
+      html += '</tbody></table>';
+    }
+    
+    main.innerHTML = html;
+  } catch (err) {
+    main.innerHTML = `<div class="card">Erreur: ${err.message}</div>`;
+  }
+}
+
+// ADD MODAL
+function openAddModal(table, columns) {
+  const modal = document.getElementById('modalContent');
+  let html = `<h3>Ajouter - ${table.replace(/_/g, ' ')}</h3><form id="addForm">`;
+  columns.forEach(col => {
+    const label = col.replace(/_/g, ' ');
+    html += `<div class="form-group"><label>${label}</label>`;
+    if (col === 'statut') {
+      html += `<select name="${col}"><option value="actif">actif</option><option value="en_attente">en_attente</option><option value="planifiee">planifiee</option></select>`;
+    } else if (col.includes('date')) {
+      html += `<input type="date" name="${col}">`;
+    } else if (col.includes('prix') || col.includes('montant') || col.includes('salaire') || col.includes('cout') || col.includes('quantite') || col.includes('superficie') || col.includes('ha')) {
+      html += `<input type="number" step="0.01" name="${col}" placeholder="${label}">`;
+    } else if (col.includes('description') || col.includes('notes') || col.includes('observations') || col.includes('recommandations')) {
+      html += `<textarea name="${col}" rows="3" placeholder="${label}"></textarea>`;
+    } else {
+      html += `<input type="text" name="${col}" placeholder="${label}">`;
+    }
+    html += `</div>`;
+  });
+  html += `<div style="display:flex;gap:10px;margin-top:20px"><button type="submit" class="btn btn-primary">Enregistrer</button><button type="button" class="btn" onclick="closeModal()" style="background:var(--border)">Annuler</button></div></form>`;
+  modal.innerHTML = html;
+  document.getElementById('modalOverlay').style.display = 'flex';
+  
+  document.getElementById('addForm').onsubmit = async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const data = {};
+    for (let [key, value] of formData.entries()) {
+      if (value) {
+        if (key.includes('prix') || key.includes('montant') || key.includes('salaire') || key.includes('cout') || key.includes('quantite') || key.includes('superficie') || key.includes('ha') || key.includes('t')) {
+          data[key] = parseFloat(value);
+        } else {
+          data[key] = value;
+        }
+      }
+    }
+    try {
+      const { error } = await supabase.from(table).insert([data]);
+      if (error) throw error;
+      closeModal();
+      showToast('Ajouté avec succès', 'success');
+      loadPage(document.querySelector('.nav-item.active')?.id?.replace('nav-', '') || 'dashboard');
+    } catch (err) {
+      showToast('Erreur: ' + err.message, 'error');
+    }
+  };
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').style.display = 'none';
+}
+
+async function deleteRecord(table, id) {
+  if (!confirm('Supprimer cet enregistrement ?')) return;
+  try {
+    const { error } = await supabase.from(table).delete().eq('id', id);
+    if (error) throw error;
+    showToast('Supprimé', 'success');
+    loadPage(document.querySelector('.nav-item.active')?.id?.replace('nav-', '') || 'dashboard');
+  } catch (err) {
+    showToast('Erreur: ' + err.message, 'error');
+  }
+}
+
+function showToast(msg, type) {
+  const toast = document.createElement('div');
+  toast.className = 'toast ' + type;
+  toast.textContent = msg;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
+}
+
+// CHECK SESSION ON LOAD
+window.addEventListener('load', async () => {
+  const initialized = initSupabase();
+  if (!initialized) {
+    document.getElementById('configSection').style.display = 'block';
+  }
+  if (supabase) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      currentUser = session.user;
+      const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+      if (profile) {
+        currentProfile = profile;
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('app').style.display = 'block';
+        document.getElementById('userName').textContent = profile.full_name;
+        document.getElementById('userRole').textContent = profile.role.replace(/_/g, ' ');
+        buildNav(profile.role);
+        loadPage('dashboard');
+      }
+    }
+  }
+});
+</script>
+</body>
+</html>
