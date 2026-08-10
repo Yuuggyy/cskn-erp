@@ -1039,29 +1039,139 @@ async function loadTablePage(table, title, columns) {
 }
 
 // ADD MODAL
+
+// ==========================================
+// FIELD OPTIONS PER TABLE (matches DB CHECK constraints)
+// ==========================================
+const FIELD_OPTIONS = {
+  // statut per table
+  statut: {
+    parcelles: ['actif','recolte','repos','prepare'],
+    commandes_ventes: ['en_attente','confirmee','en_livraison','livree','annulee'],
+    livraisons: ['planifiee','en_cours','livree','retard','annulee'],
+    employes: ['actif','conge','malade','suspendu','licencie'],
+    presences: ['present','absent','retard','conge','mission'],
+    paies: ['calculee','validee','payee'],
+    conges: ['en_attente','approuve','refuse','termine'],
+    formations: ['planifiee','en_cours','terminee','annulee'],
+    interventions_maintenance: ['planifiee','en_cours','terminee','annulee'],
+    transactions_financieres: ['en_attente','validee','payee'],
+    campagnes_agricoles: ['planifiee','en_cours','terminee','annulee'],
+    projets_publics: ['soumis','en_evaluation','approuve','refuse','realise'],
+    rapports_terrain: ['normal','attention','alerte','critique'],
+    stocks_produits: ['conforme','non_conforme','en_controle'],
+    equipements: ['actif','inactif','maintenance'],
+    journaux_systeme: ['info','succes','erreur'],
+  },
+  type_rapport: {
+    rapports_terrain: ['etat_sol','etat_culture','nuisibles','desherbage','irrigation','fertilisation','recolte','meteo','incident','autre'],
+  },
+  niveau_alerte: {
+    rapports_terrain: ['normal','attention','alerte','critique'],
+  },
+  etat_global: {
+    analyses_sol: ['excellent','bon','moyen','mauvais','critique'],
+  },
+  etat: {
+    equipements: ['excellent','bon','moyen','mauvais','hors_service'],
+  },
+  shift: {
+    production_journaliere: ['jour','nuit','continue'],
+  },
+  produit: {
+    controles_qualite: ['sucre_blanc','sucre_roux','melasse','jus','canne'],
+    commandes_ventes: ['sucre_blanc','sucre_roux','melasse','jus','canne'],
+    stocks_produits: ['sucre_blanc','sucre_roux','melasse','jus','canne'],
+  },
+  client_type: {
+    commandes_ventes: ['particulier','distributeur','industriel','export'],
+  },
+  type_contrat: {
+    employes: ['permanent','saisonnier','stagiaire','consultant'],
+  },
+  type_conge: {
+    conges: ['annuel','maladie','maternite','paternite','special','sans_solde'],
+  },
+  type_intervention: {
+    interventions_maintenance: ['preventive','corrective','urgence','inspection'],
+  },
+  type_transaction: {
+    transactions_financieres: ['recette','depense','investissement','subvention'],
+  },
+  type_intrant: {
+    intrants_agricoles: ['engrais','pesticide','herbicide','fongicide','semence','autre'],
+  },
+  type_equipement: {
+    equipements: ['broyeur','cristalliseur','essoreuse','secheur','chaudiere','turboalternateur','vehicule','pompe','autre'],
+  },
+  type: {
+    parametres_systeme: ['text','number','boolean','json'],
+    notifications: ['info','alerte','critique','succes','rapport'],
+  },
+  saison: {
+    campagnes_agricoles: ['sèche','pluies'],
+  },
+  statut_qualite: {
+    stocks_produits: ['conforme','non_conforme','en_controle'],
+  },
+};
+
+// Build a dropdown for a field given the table name
+function getDropdownHTML(col, table, currentVal) {
+  const opts = FIELD_OPTIONS[col]?.[table];
+  if (!opts) return null;
+  let html = `<select name="${col}">`;
+  opts.forEach(v => {
+    const sel = currentVal !== undefined && currentVal !== null && String(currentVal) === v ? 'selected' : '';
+    html += `<option value="${v}" ${sel}>${v}</option>`;
+  });
+  html += '</select>';
+  return html;
+}
+
+// Build a form field for a column
+function buildFormField(col, table, currentVal) {
+  const label = colLabel(col);
+  const val = currentVal !== undefined && currentVal !== null && currentVal !== '' ? String(currentVal) : '';
+  
+  // Boolean field
+  if (col === 'conforme') {
+    const selTrue = val === 'true' || val === 'True' || val === 't' ? 'selected' : '';
+    const selFalse = val === 'false' || val === 'False' || val === 'f' ? 'selected' : '';
+    return `<select name="${col}"><option value="true" ${selTrue}>Oui</option><option value="false" ${selFalse}>Non</option></select>`;
+  }
+  
+  // Try table-aware dropdown first
+  const dropdown = getDropdownHTML(col, table, val);
+  if (dropdown) return dropdown;
+  
+  // Date fields
+  if (col.includes('date')) {
+    const dateVal = val ? val.substring(0,10) : '';
+    return `<input type="date" name="${col}" value="${dateVal}" placeholder="${label}">`;
+  }
+  
+  // Number fields
+  if (col.includes('prix') || col.includes('montant') || col.includes('salaire') || col.includes('cout') || col.includes('quantite') || col.includes('superficie') || col.includes('_ha') || col.includes('_t') || col.includes('_pct') || col.includes('_usd') || col.includes('_kg') || col.includes('_cm') || col.includes('latitude') || col.includes('longitude') || col.includes('mois') || col.includes('annee') || col.includes('nb_jours') || col.includes('duree') || col.includes('taille') || col.includes('maturite') || col.includes('humidite') || col.includes('ph') || col.includes('azote') || col.includes('phosphore') || col.includes('potassium') || col.includes('vent') || col.includes('temperature') || col.includes('precipitation') || col.includes('purete') || col.includes('polarite') || col.includes('coloration') || col.includes('granulometrie') || col.includes('impuretes') || col.includes('arrets') || col.includes('pol_') || col.includes('conductivite') || col.includes('matiere_') || col.includes('visibilite') || col.includes('rendement') || col.includes('heures_') || col.includes('budget') || col.includes('valeur_')) {
+    return `<input type="number" step="0.01" name="${col}" value="${val}" placeholder="${label}">`;
+  }
+  
+  // Textarea fields
+  if (col.includes('description') || col.includes('notes') || col.includes('observations') || col.includes('recommandations') || col.includes('motif')) {
+    return `<textarea name="${col}" rows="3" placeholder="${label}">${val}</textarea>`;
+  }
+  
+  // Default text input
+  return `<input type="text" name="${col}" value="${val}" placeholder="${label}">`;
+}
+
 function openAddModal(table, columns) {
   const modal = document.getElementById('modalContent');
   let html = `<h3>Ajouter - ${tableLabel(table)}</h3><form id="addForm">`;
   columns.forEach(col => {
     const label = colLabel(col);
     html += `<div class="form-group"><label>${label}</label>`;
-    if (col === 'conforme') {
-      html += `<select name="${col}"><option value="true">Oui</option><option value="false">Non</option></select>`;
-    } else if (col === 'statut') {
-      html += `<select name="${col}"><option value="actif">actif</option><option value="en_attente">en_attente</option><option value="planifiee">planifiee</option><option value="en_cours">en_cours</option><option value="terminee">terminee</option><option value="livree">livree</option><option value="suspendu">suspendu</option><option value="payee">payee</option><option value="calculee">calculee</option></select>`;
-    } else if (col === 'saison') {
-      html += `<select name="${col}"><option value="sèche">sèche</option><option value="pluies">pluies</option></select>`;
-    } else if (col === 'type_rapport') {
-      html += `<select name="${col}"><option value="incident">incident</option><option value="maintenance">maintenance</option><option value="securite">sécurité</option><option value="production">production</option><option value="qualite">qualité</option><option value="logistique">logistique</option><option value="etat_culture">état culture</option><option value="etat_sol">état sol</option><option value="autre">autre</option></select>`;
-    } else if (col.includes('date')) {
-      html += `<input type="date" name="${col}">`;
-    } else if (col.includes('prix') || col.includes('montant') || col.includes('salaire') || col.includes('cout') || col.includes('quantite') || col.includes('superficie') || col.includes('ha')) {
-      html += `<input type="number" step="0.01" name="${col}" placeholder="${label}">`;
-    } else if (col.includes('description') || col.includes('notes') || col.includes('observations') || col.includes('recommandations')) {
-      html += `<textarea name="${col}" rows="3" placeholder="${label}"></textarea>`;
-    } else {
-      html += `<input type="text" name="${col}" placeholder="${label}">`;
-    }
+    html += buildFormField(col, table);
     html += `</div>`;
   });
   html += `<div style="display:flex;gap:10px;margin-top:20px"><button type="submit" class="btn btn-primary">Enregistrer</button><button type="button" class="btn" onclick="closeModal()" style="background:var(--border)">Annuler</button></div></form>`;
@@ -1076,7 +1186,7 @@ function openAddModal(table, columns) {
       if (value) {
         if (key === 'conforme') {
           data[key] = value === 'true';
-        } else if (key.includes('prix') || key.includes('montant') || key.includes('salaire') || key.includes('cout') || key.includes('quantite') || key.includes('superficie') || key.includes('ha') || key.includes('_t') || key.includes('_pct') || key.includes('_usd')) {
+        } else if (key.includes('prix') || key.includes('montant') || key.includes('salaire') || key.includes('cout') || key.includes('quantite') || key.includes('_ha') || key.includes('_t') || key.includes('_pct') || key.includes('_usd') || key.includes('_kg') || key.includes('_cm') || key.includes('latitude') || key.includes('longitude') || key.includes('mois') || key.includes('annee') || key.includes('nb_jours') || key.includes('duree') || key.includes('taille') || key.includes('maturite') || key.includes('humidite') || key === 'ph' || key.includes('azote') || key.includes('phosphore') || key.includes('potassium') || key.includes('vent') || key.includes('temperature') || key.includes('precipitation') || key.includes('purete') || key.includes('polarite') || key.includes('coloration') || key.includes('granulometrie') || key.includes('impuretes') || key.includes('arrets') || key.includes('pol_') || key.includes('conductivite') || key.includes('matiere_') || key.includes('visibilite') || key.includes('rendement') || key.includes('heures_') || key.includes('budget') || key.includes('valeur_')) {
           data[key] = parseFloat(value);
         } else {
           data[key] = value;
@@ -1100,7 +1210,6 @@ function openAddModal(table, columns) {
 function openEditModal(table, columns, recordId) {
   const modal = document.getElementById('modalContent');
   
-  // Fetch the record first
   sbClient.from(table).select('*').eq('id', recordId).single().then(({ data: row, error }) => {
     if (error || !row) {
       showToast('Erreur: impossible de charger l\'enregistrement', 'error');
@@ -1110,45 +1219,8 @@ function openEditModal(table, columns, recordId) {
     let html = `<h3>Modifier - ${tableLabel(table)}</h3><form id="editForm">`;
     columns.forEach(col => {
       const label = colLabel(col);
-      const currentVal = row[col] !== null && row[col] !== undefined ? String(row[col]) : '';
       html += `<div class="form-group"><label>${label}</label>`;
-      if (col === 'conforme') {
-        html += `<select name="${col}"><option value="true" ${currentVal === 'true' || currentVal === 'True' || currentVal === 't' ? 'selected' : ''}>Oui</option><option value="false" ${currentVal === 'false' || currentVal === 'False' || currentVal === 'f' ? 'selected' : ''}>Non</option></select>`;
-      } else if (col === 'statut') {
-        const statuses = ['actif','en_attente','planifiee','en_cours','terminee','livree','suspendu','absent','present','approuve','payee','calculee','inscrit'];
-        html += `<select name="${col}">`;
-        statuses.forEach(s => {
-          html += `<option value="${s}" ${currentVal === s ? 'selected' : ''}>${s}</option>`;
-        });
-        html += `</select>`;
-      } else if (col === 'saison') {
-        html += `<select name="${col}"><option value="sèche" ${currentVal === 'sèche' ? 'selected' : ''}>sèche</option><option value="pluies" ${currentVal === 'pluies' ? 'selected' : ''}>pluies</option></select>`;
-      } else if (col === 'type_rapport') {
-        const types = ['incident','maintenance','securite','production','qualite','logistique','etat_culture','etat_sol','autre'];
-        html += `<select name="${col}">`;
-        types.forEach(s => {
-          html += `<option value="${s}" ${currentVal === s ? 'selected' : ''}>${s}</option>`;
-        });
-        html += `</select>`;
-      } else if (col === 'etat') {
-        const etats = ['excellent','bon','moyen','mauvais','hors_service'];
-        html += `<select name="${col}">`;
-        etats.forEach(s => {
-          html += `<option value="${s}" ${currentVal === s ? 'selected' : ''}>${s}</option>`;
-        });
-        html += `</select>`;
-      } else if (col === 'conforme') {
-        html += `<select name="${col}"><option value="oui" ${currentVal === 'oui' ? 'selected' : ''}>oui</option><option value="non" ${currentVal === 'non' ? 'selected' : ''}>non</option></select>`;
-      } else if (col.includes('date')) {
-        const val = currentVal ? currentVal.substring(0,10) : '';
-        html += `<input type="date" name="${col}" value="${val}">`;
-      } else if (col.includes('prix') || col.includes('montant') || col.includes('salaire') || col.includes('cout') || col.includes('quantite') || col.includes('superficie') || col.includes('ha') || col.includes('_t') || col.includes('_pct') || col.includes('_usd')) {
-        html += `<input type="number" step="0.01" name="${col}" value="${currentVal}" placeholder="${label}">`;
-      } else if (col.includes('description') || col.includes('notes') || col.includes('observations') || col.includes('recommandations')) {
-        html += `<textarea name="${col}" rows="3" placeholder="${label}">${currentVal}</textarea>`;
-      } else {
-        html += `<input type="text" name="${col}" value="${currentVal}" placeholder="${label}">`;
-      }
+      html += buildFormField(col, table, row[col]);
       html += `</div>`;
     });
     html += `<div style="display:flex;gap:10px;margin-top:20px"><button type="submit" class="btn btn-primary">Enregistrer</button><button type="button" class="btn" onclick="closeModal()" style="background:var(--border)">Annuler</button></div></form>`;
@@ -1163,7 +1235,7 @@ function openEditModal(table, columns, recordId) {
         if (value !== '' && value !== null) {
           if (key === 'conforme') {
             data[key] = value === 'true';
-          } else if (key.includes('prix') || key.includes('montant') || key.includes('salaire') || key.includes('cout') || key.includes('quantite') || key.includes('superficie') || key.includes('ha') || key.includes('_t') || key.includes('_pct') || key.includes('_usd')) {
+          } else if (key.includes('prix') || key.includes('montant') || key.includes('salaire') || key.includes('cout') || key.includes('quantite') || key.includes('_ha') || key.includes('_t') || key.includes('_pct') || key.includes('_usd') || key.includes('_kg') || key.includes('_cm') || key.includes('latitude') || key.includes('longitude') || key.includes('mois') || key.includes('annee') || key.includes('nb_jours') || key.includes('duree') || key.includes('taille') || key.includes('maturite') || key.includes('humidite') || key === 'ph' || key.includes('azote') || key.includes('phosphore') || key.includes('potassium') || key.includes('vent') || key.includes('temperature') || key.includes('precipitation') || key.includes('purete') || key.includes('polarite') || key.includes('coloration') || key.includes('granulometrie') || key.includes('impuretes') || key.includes('arrets') || key.includes('pol_') || key.includes('conductivite') || key.includes('matiere_') || key.includes('visibilite') || key.includes('rendement') || key.includes('heures_') || key.includes('budget') || key.includes('valeur_')) {
             data[key] = parseFloat(value);
           } else {
             data[key] = value;
