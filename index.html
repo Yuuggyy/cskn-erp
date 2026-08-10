@@ -466,68 +466,505 @@ async function loadPage(pageId) {
   }
 }
 
-// DASHBOARD
+// DASHBOARD - Personnalisé par rôle
 async function loadDashboard() {
   const main = document.getElementById('mainContent');
   main.innerHTML = '<div class="loading">Chargement du tableau de bord...</div>';
+  const role = currentProfile.role;
   
   try {
-    // Get parameters
-    const { data: params } = await sbClient.from('parametres_systeme').select('*');
-    const { data: parcelles } = await sbClient.from('parcelles').select('*');
-    const { data: production } = await sbClient.from('production_journaliere').select('*').order('date_prod', { ascending: false }).limit(7);
-    const { data: employes } = await sbClient.from('employes').select('*');
-    const { data: equipements } = await sbClient.from('equipements').select('*');
-    const { data: notifications } = await sbClient.from('notifications').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(5);
+    let html = '<h2>Tableau de bord</h2>';
     
-    const paramMap = {};
-    params?.forEach(p => paramMap[p.cle] = p.valeur);
-    
-    const todayProd = production?.[0] || {};
-    const totalCanneSemaine = production?.reduce((sum, p) => sum + (parseFloat(p.canne_broyee_t) || 0), 0) || 0;
-    
-    let statsHtml = `
-      <h2>Tableau de bord</h2>
-      <div class="stats-grid">
-        <div class="stat-card"><div class="label">Superficie totale</div><div class="value">${paramMap.superficie_totale_ha || '9772'}<span class="unit"> ha</span></div></div>
-        <div class="stat-card"><div class="label">Production annuelle</div><div class="value">${paramMap.production_annuelle_t || '81287'}<span class="unit"> t</span></div></div>
-        <div class="stat-card"><div class="label">Employés</div><div class="value">${paramMap.nombre_employes || employes?.length || '2539'}</div></div>
-        <div class="stat-card"><div class="label">Capacité broyage/jour</div><div class="value">${paramMap.capacite_broyage_jour_t || '5500'}<span class="unit"> t</span></div></div>
-        <div class="stat-card"><div class="label">Canne broyée (7j)</div><div class="value">${totalCanneSemaine.toFixed(0)}<span class="unit"> t</span></div></div>
-        <div class="stat-card"><div class="label">Parcelles actives</div><div class="value">${parcelles?.length || 0}</div></div>
-        <div class="stat-card"><div class="label">Équipements</div><div class="value">${equipements?.length || 0}</div></div>
-        <div class="stat-card"><div class="label">Taux change CDF</div><div class="value">${paramMap.taux_change_cdf || '2800'}</div></div>
-      </div>
-    `;
-    
-    // Production table
-    let prodHtml = '<div class="card"><h3 style="margin-bottom:16px;color:var(--green-dark)">Production récente (7 jours)</h3>';
-    if (production && production.length > 0) {
-      prodHtml += '<table><thead><tr><th>Date</th><th>Poste</th><th>Canne (t)</th><th>Sucre blanc (t)</th><th>Sucre roux (t)</th><th>Mélasse (t)</th><th>Rendement</th></tr></thead><tbody>';
-      production.forEach(p => {
-        prodHtml += `<tr><td>${p.date_prod || '-'}</td><td>${p.shift || '-'}</td><td>${p.canne_broyee_t || 0}</td><td>${p.sucre_blanc_t || 0}</td><td>${p.sucre_roux_t || 0}</td><td>${p.melasse_t || 0}</td><td>${p.rendement_pct || 0}%</td></tr>`;
-      });
-      prodHtml += '</tbody></table>';
+    if (role === 'admin' || role === 'directeur') {
+      html += await dashboardAdmin();
+    } else if (role === 'chef_agricole') {
+      html += await dashboardAgricole();
+    } else if (role === 'chef_production') {
+      html += await dashboardProduction();
+    } else if (role === 'agent_qualite') {
+      html += await dashboardQualite();
+    } else if (role === 'agent_rh') {
+      html += await dashboardRH();
+    } else if (role === 'agent_maintenance') {
+      html += await dashboardMaintenance();
+    } else if (role === 'agent_distribution') {
+      html += await dashboardDistribution();
+    } else if (role === 'agent_terrain') {
+      html += await dashboardTerrain();
     } else {
-      prodHtml += '<div class="empty">Aucune donnée de production</div>';
+      html += await dashboardLecteur();
     }
-    prodHtml += '</div>';
     
-    // Notifications
-    let notifHtml = '<div class="card"><h3 style="margin-bottom:16px;color:var(--green-dark)">Notifications récentes</h3>';
+    // Notifications pour tous
+    const { data: notifications } = await sbClient.from('notifications').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(5);
+    html += '<div class="card"><h3 style="margin-bottom:16px;color:var(--green-dark)">Notifications récentes</h3>';
     if (notifications && notifications.length > 0) {
       notifications.forEach(n => {
-        notifHtml += `<div style="padding:12px;border-bottom:1px solid var(--border)"><strong>${n.titre}</strong><br><span style="color:var(--gray);font-size:13px">${n.message}</span></div>`;
+        html += `<div style="padding:12px;border-bottom:1px solid var(--border)"><strong>${n.titre || 'Notification'}</strong><br><span style="color:var(--gray);font-size:13px">${n.message || ''}</span></div>`;
       });
     } else {
-      notifHtml += '<div class="empty">Aucune notification</div>';
+      html += '<div class="empty">Aucune notification</div>';
     }
-    notifHtml += '</div>';
+    html += '</div>';
     
-    main.innerHTML = statsHtml + prodHtml + notifHtml;
+    main.innerHTML = html;
   } catch (err) {
     main.innerHTML = '<div class="card">Erreur: ' + err.message + '</div>';
   }
+}
+
+// Dashboard Admin/Directeur - Vue globale
+async function dashboardAdmin() {
+  const { data: params } = await sbClient.from('parametres_systeme').select('*');
+  const { data: parcelles } = await sbClient.from('parcelles').select('*');
+  const { data: production } = await sbClient.from('production_journaliere').select('*').order('date_prod', { ascending: false }).limit(7);
+  const { data: employes } = await sbClient.from('employes').select('*');
+  const { data: equipements } = await sbClient.from('equipements').select('*');
+  const { data: ventes } = await sbClient.from('commandes_ventes').select('*');
+  const { data: finances } = await sbClient.from('transactions_financieres').select('*');
+  
+  const paramMap = {};
+  params?.forEach(p => paramMap[p.cle] = p.valeur);
+  const totalCanneSemaine = production?.reduce((sum, p) => sum + (parseFloat(p.canne_broyee_t) || 0), 0) || 0;
+  const totalVentes = ventes?.reduce((sum, v) => sum + (parseFloat(v.montant_total_usd) || 0), 0) || 0;
+  const totalFinances = finances?.reduce((sum, f) => sum + (parseFloat(f.montant_usd) || 0), 0) || 0;
+  
+  let html = `
+    <div class="stats-grid">
+      <div class="stat-card"><div class="label">Superficie totale</div><div class="value">${paramMap.superficie_totale_ha || '9772'}<span class="unit"> ha</span></div></div>
+      <div class="stat-card"><div class="label">Production annuelle</div><div class="value">${paramMap.production_annuelle_t || '81287'}<span class="unit"> t</span></div></div>
+      <div class="stat-card"><div class="label">Employés</div><div class="value">${paramMap.nombre_employes || employes?.length || '2539'}</div></div>
+      <div class="stat-card"><div class="label">Capacité broyage/jour</div><div class="value">${paramMap.capacite_broyage_jour_t || '5500'}<span class="unit"> t</span></div></div>
+      <div class="stat-card"><div class="label">Canne broyée (7j)</div><div class="value">${totalCanneSemaine.toFixed(0)}<span class="unit"> t</span></div></div>
+      <div class="stat-card"><div class="label">Parcelles actives</div><div class="value">${parcelles?.length || 0}</div></div>
+      <div class="stat-card"><div class="label">Ventes totales</div><div class="value">${totalVentes.toFixed(0)}<span class="unit"> USD</span></div></div>
+      <div class="stat-card"><div class="label">Taux change CDF</div><div class="value">${paramMap.taux_change_cdf || '2400'}</div></div>
+    </div>
+  `;
+  
+  // Production table
+  html += '<div class="card"><h3 style="margin-bottom:16px;color:var(--green-dark)">Production récente (7 jours)</h3>';
+  if (production && production.length > 0) {
+    html += '<table><thead><tr><th>Date</th><th>Poste</th><th>Canne (t)</th><th>Sucre blanc (t)</th><th>Sucre roux (t)</th><th>Mélasse (t)</th><th>Rendement</th></tr></thead><tbody>';
+    production.forEach(p => {
+      html += `<tr><td>${p.date_prod || '-'}</td><td>${p.shift || '-'}</td><td>${p.canne_broyee_t || 0}</td><td>${p.sucre_blanc_t || 0}</td><td>${p.sucre_roux_t || 0}</td><td>${p.melasse_t || 0}</td><td>${p.rendement_pct || 0}%</td></tr>`;
+    });
+    html += '</tbody></table>';
+  } else {
+    html += '<div class="empty">Aucune donnée de production</div>';
+  }
+  html += '</div>';
+  
+  return html;
+}
+
+// Dashboard Chef Agricole
+async function dashboardAgricole() {
+  const { data: parcelles } = await sbClient.from('parcelles').select('*');
+  const { data: production } = await sbClient.from('production_journaliere').select('*').order('date_prod', { ascending: false }).limit(7);
+  const { data: analyses } = await sbClient.from('analyses_sol').select('*').order('created_at', { ascending: false }).limit(5);
+  const { data: meteo } = await sbClient.from('donnees_meteo').select('*').order('created_at', { ascending: false }).limit(1);
+  const { data: intrants } = await sbClient.from('intrants_agricoles').select('*');
+  
+  const totalCanne = production?.reduce((sum, p) => sum + (parseFloat(p.canne_broyee_t) || 0), 0) || 0;
+  const totalSuperficie = parcelles?.reduce((sum, p) => sum + (parseFloat(p.superficie_ha) || 0), 0) || 0;
+  const parcellesActives = parcelles?.filter(p => p.statut === 'actif' || p.statut === 'en_production')?.length || 0;
+  const parcellesMatures = parcelles?.filter(p => parseFloat(p.maturite_pct || 0) >= 80)?.length || 0;
+  
+  let html = `
+    <div class="stats-grid">
+      <div class="stat-card"><div class="label">Parcelles totales</div><div class="value">${parcelles?.length || 0}</div></div>
+      <div class="stat-card"><div class="label">Superficie cultivée</div><div class="value">${totalSuperficie.toFixed(0)}<span class="unit"> ha</span></div></div>
+      <div class="stat-card"><div class="label">Parcelles actives</div><div class="value">${parcellesActives}</div></div>
+      <div class="stat-card"><div class="label">Canne prête à couper</div><div class="value">${parcellesMatures}<span class="unit"> parcelles</span></div></div>
+      <div class="stat-card"><div class="label">Canne broyée (7j)</div><div class="value">${totalCanne.toFixed(0)}<span class="unit"> t</span></div></div>
+      <div class="stat-card"><div class="label">Intrants en stock</div><div class="value">${intrants?.length || 0}<span class="unit"> types</span></div></div>
+    </div>
+  `;
+  
+  // Météo
+  if (meteo && meteo.length > 0) {
+    const m = meteo[0];
+    html += `<div class="card"><h3 style="margin-bottom:16px;color:var(--green-dark)">Météo actuelle</h3>
+      <div style="display:flex;gap:30px;flex-wrap:wrap">
+        <div><span style="color:var(--gray);font-size:13px">Température</span><br><strong>${m.temperature_c || '-'}°C</strong></div>
+        <div><span style="color:var(--gray);font-size:13px">Humidité</span><br><strong>${m.humidite_pct || '-'}%</strong></div>
+        <div><span style="color:var(--gray);font-size:13px">Précipitations</span><br><strong>${m.precipitation_mm || '-'} mm</strong></div>
+        <div><span style="color:var(--gray);font-size:13px">Vent</span><br><strong>${m.vent_kmh || '-'} km/h</strong></div>
+      </div></div>`;
+  }
+  
+  // Parcelles table
+  html += '<div class="card"><h3 style="margin-bottom:16px;color:var(--green-dark)">Parcelles</h3>';
+  if (parcelles && parcelles.length > 0) {
+    html += '<table><thead><tr><th>Code</th><th>Superficie (ha)</th><th>Variété</th><th>Maturité</th><th>Statut</th></tr></thead><tbody>';
+    parcelles.forEach(p => {
+      html += `<tr><td>${p.code_parcelle || '-'}</td><td>${p.superficie_ha || '-'}</td><td>${p.variete_canne || '-'}</td><td>${p.maturite_pct || '-'}%</td><td>${p.statut || '-'}</td></tr>`;
+    });
+    html += '</tbody></table>';
+  } else {
+    html += '<div class="empty">Aucune parcelle</div>';
+  }
+  html += '</div>';
+  
+  // Analyses sol récentes
+  html += '<div class="card"><h3 style="margin-bottom:16px;color:var(--green-dark)">Analyses de sol récentes</h3>';
+  if (analyses && analyses.length > 0) {
+    html += '<table><thead><tr><th>Parcelle</th><th>pH</th><th>Azote (N)</th><th>Phosphore (P)</th><th>Potassium (K)</th></tr></thead><tbody>';
+    analyses.forEach(a => {
+      html += `<tr><td>${a.parcelle_id || '-'}</td><td>${a.ph || '-'}</td><td>${a.azote || '-'}</td><td>${a.phosphore || '-'}</td><td>${a.potassium || '-'}</td></tr>`;
+    });
+    html += '</tbody></table>';
+  } else {
+    html += '<div class="empty">Aucune analyse de sol</div>';
+  }
+  html += '</div>';
+  
+  return html;
+}
+
+// Dashboard Chef Production
+async function dashboardProduction() {
+  const { data: production } = await sbClient.from('production_journaliere').select('*').order('date_prod', { ascending: false }).limit(7);
+  const { data: controles } = await sbClient.from('controles_qualite').select('*').order('created_at', { ascending: false }).limit(5);
+  const { data: stocks } = await sbClient.from('stocks_produits').select('*');
+  
+  const totalCanne = production?.reduce((sum, p) => sum + (parseFloat(p.canne_broyee_t) || 0), 0) || 0;
+  const totalSucreBlanc = production?.reduce((sum, p) => sum + (parseFloat(p.sucre_blanc_t) || 0), 0) || 0;
+  const totalSucreRoux = production?.reduce((sum, p) => sum + (parseFloat(p.sucre_roux_t) || 0), 0) || 0;
+  const totalMelasse = production?.reduce((sum, p) => sum + (parseFloat(p.melasse_t) || 0), 0) || 0;
+  const rendementMoy = production?.length ? (production.reduce((s, p) => s + (parseFloat(p.rendement_pct) || 0), 0) / production.length).toFixed(1) : 0;
+  const conformes = controles?.filter(c => c.conforme === 'oui' || c.conforme === true)?.length || 0;
+  const totalControles = controles?.length || 0;
+  const tauxConformite = totalControles ? ((conformes / totalControles) * 100).toFixed(0) : 0;
+  
+  let html = `
+    <div class="stats-grid">
+      <div class="stat-card"><div class="label">Canne broyée (7j)</div><div class="value">${totalCanne.toFixed(0)}<span class="unit"> t</span></div></div>
+      <div class="stat-card"><div class="label">Sucre blanc (7j)</div><div class="value">${totalSucreBlanc.toFixed(0)}<span class="unit"> t</span></div></div>
+      <div class="stat-card"><div class="label">Sucre roux (7j)</div><div class="value">${totalSucreRoux.toFixed(0)}<span class="unit"> t</span></div></div>
+      <div class="stat-card"><div class="label">Mélasse (7j)</div><div class="value">${totalMelasse.toFixed(0)}<span class="unit"> t</span></div></div>
+      <div class="stat-card"><div class="label">Rendement moyen</div><div class="value">${rendementMoy}<span class="unit">%</span></div></div>
+      <div class="stat-card"><div class="label">Taux conformité</div><div class="value">${tauxConformite}<span class="unit">%</span></div></div>
+    </div>
+  `;
+  
+  // Production table
+  html += '<div class="card"><h3 style="margin-bottom:16px;color:var(--green-dark)">Production récente (7 jours)</h3>';
+  if (production && production.length > 0) {
+    html += '<table><thead><tr><th>Date</th><th>Poste</th><th>Canne (t)</th><th>Sucre blanc (t)</th><th>Sucre roux (t)</th><th>Mélasse (t)</th><th>Rendement</th></tr></thead><tbody>';
+    production.forEach(p => {
+      html += `<tr><td>${p.date_prod || '-'}</td><td>${p.shift || '-'}</td><td>${p.canne_broyee_t || 0}</td><td>${p.sucre_blanc_t || 0}</td><td>${p.sucre_roux_t || 0}</td><td>${p.melasse_t || 0}</td><td>${p.rendement_pct || 0}%</td></tr>`;
+    });
+    html += '</tbody></table>';
+  } else {
+    html += '<div class="empty">Aucune donnée de production</div>';
+  }
+  html += '</div>';
+  
+  // Stocks
+  html += '<div class="card"><h3 style="margin-bottom:16px;color:var(--green-dark)">Stocks de produits</h3>';
+  if (stocks && stocks.length > 0) {
+    html += '<table><thead><tr><th>Produit</th><th>Quantité (t)</th><th>Entrepôt</th><th>Statut</th></tr></thead><tbody>';
+    stocks.forEach(s => {
+      html += `<tr><td>${s.nom_produit || '-'}</td><td>${s.quantite_t || '-'}</td><td>${s.entrepot || '-'}</td><td>${s.statut || '-'}</td></tr>`;
+    });
+    html += '</tbody></table>';
+  } else {
+    html += '<div class="empty">Aucun stock</div>';
+  }
+  html += '</div>';
+  
+  return html;
+}
+
+// Dashboard Agent Qualité
+async function dashboardQualite() {
+  const { data: controles } = await sbClient.from('controles_qualite').select('*').order('created_at', { ascending: false }).limit(10);
+  const { data: production } = await sbClient.from('production_journaliere').select('*').order('date_prod', { ascending: false }).limit(5);
+  
+  const conformes = controles?.filter(c => c.conforme === 'oui' || c.conforme === true)?.length || 0;
+  const nonConformes = controles?.filter(c => c.conforme === 'non' || c.conforme === false)?.length || 0;
+  const totalControles = controles?.length || 0;
+  const tauxConformite = totalControles ? ((conformes / totalControles) * 100).toFixed(0) : 0;
+  const rendementMoy = production?.length ? (production.reduce((s, p) => s + (parseFloat(p.rendement_pct) || 0), 0) / production.length).toFixed(1) : 0;
+  
+  let html = `
+    <div class="stats-grid">
+      <div class="stat-card"><div class="label">Contrôles récents</div><div class="value">${totalControles}</div></div>
+      <div class="stat-card"><div class="label">Conformes</div><div class="value">${conformes}<span class="unit"> (${tauxConformite}%)</span></div></div>
+      <div class="stat-card"><div class="label">Non conformes</div><div class="value">${nonConformes}</div></div>
+      <div class="stat-card"><div class="label">Rendement moyen</div><div class="value">${rendementMoy}<span class="unit">%</span></div></div>
+    </div>
+  `;
+  
+  // Contrôles récents
+  html += '<div class="card"><h3 style="margin-bottom:16px;color:var(--green-dark)">Contrôles qualité récents</h3>';
+  if (controles && controles.length > 0) {
+    html += '<table><thead><tr><th>Lot</th><th>Type contrôle</th><th>Conforme</th><th>Date</th></tr></thead><tbody>';
+    controles.forEach(c => {
+      const confCls = c.conforme === 'oui' || c.conforme === true ? 'active' : 'alert';
+      html += `<tr><td>${c.lot_reference || '-'}</td><td>${c.type_controle || '-'}</td><td><span class="badge ${confCls}">${c.conforme || '-'}</span></td><td>${(c.date_controle || c.created_at || '-').substring(0,10)}</td></tr>`;
+    });
+    html += '</tbody></table>';
+  } else {
+    html += '<div class="empty">Aucun contrôle qualité</div>';
+  }
+  html += '</div>';
+  
+  return html;
+}
+
+// Dashboard Agent RH
+async function dashboardRH() {
+  const { data: employes } = await sbClient.from('employes').select('*');
+  const { data: presences } = await sbClient.from('presences').select('*').order('created_at', { ascending: false }).limit(20);
+  const { data: conges } = await sbClient.from('conges').select('*');
+  const { data: paies } = await sbClient.from('paies').select('*').order('created_at', { ascending: false }).limit(10);
+  const { data: formations } = await sbClient.from('formations').select('*');
+  
+  const totalEmployes = employes?.length || 0;
+  const employesActifs = employes?.filter(e => e.statut === 'actif')?.length || 0;
+  const employesSuspendus = employes?.filter(e => e.statut === 'suspendu')?.length || 0;
+  const employesSaisonniers = employes?.filter(e => e.type_contrat === 'saisonnier')?.length || 0;
+  const employesPermanents = employes?.filter(e => e.type_contrat === 'permanent')?.length || 0;
+  const congesEnCours = conges?.filter(c => c.statut === 'approuve' || c.statut === 'en_cours')?.length || 0;
+  const congesEnAttente = conges?.filter(c => c.statut === 'en_attente')?.length || 0;
+  const presentsAujourdhui = presences?.filter(p => p.statut === 'present')?.length || 0;
+  const absentsAujourdhui = presences?.filter(p => p.statut === 'absent')?.length || 0;
+  const masseSalariale = employes?.reduce((sum, e) => sum + (parseFloat(e.salaire_base_usd) || 0), 0) || 0;
+  
+  let html = `
+    <div class="stats-grid">
+      <div class="stat-card"><div class="label">Total employés</div><div class="value">${totalEmployes}</div></div>
+      <div class="stat-card"><div class="label">Employés actifs</div><div class="value">${employesActifs}</div></div>
+      <div class="stat-card"><div class="label">Suspendus</div><div class="value">${employesSuspendus}</div></div>
+      <div class="stat-card"><div class="label">Présents aujourd'hui</div><div class="value">${presentsAujourdhui}</div></div>
+      <div class="stat-card"><div class="label">Congés en cours</div><div class="value">${congesEnCours}</div></div>
+      <div class="stat-card"><div class="label">Congés en attente</div><div class="value">${congesEnAttente}</div></div>
+      <div class="stat-card"><div class="label">Permanents</div><div class="value">${employesPermanents}</div></div>
+      <div class="stat-card"><div class="label">Saisonniers</div><div class="value">${employesSaisonniers}</div></div>
+      <div class="stat-card"><div class="label">Masse salariale</div><div class="value">${masseSalariale.toFixed(0)}<span class="unit"> USD/mois</span></div></div>
+    </div>
+  `;
+  
+  // Congés en attente (action requise)
+  const congesAttente = conges?.filter(c => c.statut === 'en_attente') || [];
+  if (congesAttente.length > 0) {
+    html += '<div class="card"><h3 style="margin-bottom:16px;color:var(--green-dark)">Congés en attente d\'approbation</h3>';
+    html += '<table><thead><tr><th>Employé</th><th>Date début</th><th>Date fin</th><th>Type</th><th>Statut</th></tr></thead><tbody>';
+    congesAttente.forEach(c => {
+      html += `<tr><td>${c.employe_id || '-'}</td><td>${(c.date_debut || '-').substring(0,10)}</td><td>${(c.date_fin || '-').substring(0,10)}</td><td>${c.type_conge || '-'}</td><td><span class="badge pending">${c.statut || '-'}</span></td></tr>`;
+    });
+    html += '</tbody></table></div>';
+  }
+  
+  // Paies récentes
+  html += '<div class="card"><h3 style="margin-bottom:16px;color:var(--green-dark)">Paies récentes</h3>';
+  if (paies && paies.length > 0) {
+    html += '<table><thead><tr><th>Employé</th><th>Mois</th><th>Salaire base</th><th>Net payé</th><th>Statut</th></tr></thead><tbody>';
+    paies.forEach(p => {
+      const cls = p.statut === 'payee' ? 'active' : 'pending';
+      html += `<tr><td>${p.employe_id || '-'}</td><td>${p.mois || '-'}</td><td>${p.salaire_base || '-'} USD</td><td>${p.net_paye || '-'} USD</td><td><span class="badge ${cls}">${p.statut || '-'}</span></td></tr>`;
+    });
+    html += '</tbody></table>';
+  } else {
+    html += '<div class="empty">Aucune paie</div>';
+  }
+  html += '</div>';
+  
+  return html;
+}
+
+// Dashboard Agent Maintenance
+async function dashboardMaintenance() {
+  const { data: equipements } = await sbClient.from('equipements').select('*');
+  const { data: interventions } = await sbClient.from('interventions_maintenance').select('*').order('created_at', { ascending: false }).limit(10);
+  
+  const totalEquip = equipements?.length || 0;
+  const enBonEtat = equipements?.filter(e => e.etat === 'bon' || e.etat === 'excellent')?.length || 0;
+  const etatMoyen = equipements?.filter(e => e.etat === 'moyen')?.length || 0;
+  const hs = equipements?.filter(e => e.etat === 'mauvais' || e.etat === 'hors_service')?.length || 0;
+  const intervEnCours = interventions?.filter(i => i.statut === 'en_cours')?.length || 0;
+  const intervPlanifiees = interventions?.filter(i => i.statut === 'planifiee')?.length || 0;
+  const intervTerminees = interventions?.filter(i => i.statut === 'terminee')?.length || 0;
+  
+  let html = `
+    <div class="stats-grid">
+      <div class="stat-card"><div class="label">Total équipements</div><div class="value">${totalEquip}</div></div>
+      <div class="stat-card"><div class="label">En bon état</div><div class="value">${enBonEtat}</div></div>
+      <div class="stat-card"><div class="label">État moyen</div><div class="value">${etatMoyen}</div></div>
+      <div class="stat-card"><div class="label">Hors service</div><div class="value">${hs}</div></div>
+      <div class="stat-card"><div class="label">Interventions en cours</div><div class="value">${intervEnCours}</div></div>
+      <div class="stat-card"><div class="label">Interventions planifiées</div><div class="value">${intervPlanifiees}</div></div>
+    </div>
+  `;
+  
+  // Interventions récentes
+  html += '<div class="card"><h3 style="margin-bottom:16px;color:var(--green-dark)">Interventions récentes</h3>';
+  if (interventions && interventions.length > 0) {
+    html += '<table><thead><tr><th>Équipement</th><th>Type</th><th>Date</th><th>Statut</th></tr></thead><tbody>';
+    interventions.forEach(i => {
+      const cls = i.statut === 'terminee' ? 'active' : i.statut === 'en_cours' ? 'pending' : 'normal';
+      html += `<tr><td>${i.equipement_id || '-'}</td><td>${i.type_intervention || '-'}</td><td>${(i.date_intervention || i.created_at || '-').substring(0,10)}</td><td><span class="badge ${cls}">${i.statut || '-'}</span></td></tr>`;
+    });
+    html += '</tbody></table>';
+  } else {
+    html += '<div class="empty">Aucune intervention</div>';
+  }
+  html += '</div>';
+  
+  // Équipements par état
+  html += '<div class="card"><h3 style="margin-bottom:16px;color:var(--green-dark)">État des équipements</h3>';
+  if (equipements && equipements.length > 0) {
+    html += '<table><thead><tr><th>Code</th><th>Nom</th><th>Type</th><th>État</th><th>Localisation</th></tr></thead><tbody>';
+    equipements.forEach(e => {
+      const cls = e.etat === 'bon' || e.etat === 'excellent' ? 'active' : e.etat === 'moyen' ? 'pending' : 'alert';
+      html += `<tr><td>${e.code || '-'}</td><td>${e.nom || '-'}</td><td>${e.type_equipement || '-'}</td><td><span class="badge ${cls}">${e.etat || '-'}</span></td><td>${e.localisation || '-'}</td></tr>`;
+    });
+    html += '</tbody></table>';
+  } else {
+    html += '<div class="empty">Aucun équipement</div>';
+  }
+  html += '</div>';
+  
+  return html;
+}
+
+// Dashboard Agent Distribution
+async function dashboardDistribution() {
+  const { data: ventes } = await sbClient.from('commandes_ventes').select('*').order('created_at', { ascending: false }).limit(10);
+  const { data: livraisons } = await sbClient.from('livraisons').select('*').order('created_at', { ascending: false }).limit(10);
+  
+  const totalCommandes = ventes?.length || 0;
+  const cmdEnAttente = ventes?.filter(v => v.statut === 'en_attente')?.length || 0;
+  const cmdLivrees = ventes?.filter(v => v.statut === 'livree')?.length || 0;
+  const totalRevenus = ventes?.reduce((sum, v) => sum + (parseFloat(v.montant_total_usd) || 0), 0) || 0;
+  const livrEnCours = livraisons?.filter(l => l.statut === 'en_cours')?.length || 0;
+  const livrPlanifiees = livraisons?.filter(l => l.statut === 'planifiee')?.length || 0;
+  const livrTerminees = livraisons?.filter(l => l.statut === 'terminee' || l.statut === 'livree')?.length || 0;
+  
+  let html = `
+    <div class="stats-grid">
+      <div class="stat-card"><div class="label">Total commandes</div><div class="value">${totalCommandes}</div></div>
+      <div class="stat-card"><div class="label">En attente</div><div class="value">${cmdEnAttente}</div></div>
+      <div class="stat-card"><div class="label">Commandes livrées</div><div class="value">${cmdLivrees}</div></div>
+      <div class="stat-card"><div class="label">Revenus totaux</div><div class="value">${totalRevenus.toFixed(0)}<span class="unit"> USD</span></div></div>
+      <div class="stat-card"><div class="label">Livraisons en cours</div><div class="value">${livrEnCours}</div></div>
+      <div class="stat-card"><div class="label">Livraisons planifiées</div><div class="value">${livrPlanifiees}</div></div>
+    </div>
+  `;
+  
+  // Commandes récentes
+  html += '<div class="card"><h3 style="margin-bottom:16px;color:var(--green-dark)">Commandes récentes</h3>';
+  if (ventes && ventes.length > 0) {
+    html += '<table><thead><tr><th>N° commande</th><th>Client</th><th>Produit</th><th>Quantité (t)</th><th>Montant (USD)</th><th>Statut</th></tr></thead><tbody>';
+    ventes.forEach(v => {
+      const cls = v.statut === 'livree' ? 'active' : v.statut === 'en_attente' ? 'pending' : 'normal';
+      html += `<tr><td>${v.numero_commande || '-'}</td><td>${v.nom_client || '-'}</td><td>${v.produit || '-'}</td><td>${v.quantite_t || '-'}</td><td>${v.montant_total_usd || '-'}</td><td><span class="badge ${cls}">${v.statut || '-'}</span></td></tr>`;
+    });
+    html += '</tbody></table>';
+  } else {
+    html += '<div class="empty">Aucune commande</div>';
+  }
+  html += '</div>';
+  
+  // Livraisons récentes
+  html += '<div class="card"><h3 style="margin-bottom:16px;color:var(--green-dark)">Livraisons récentes</h3>';
+  if (livraisons && livraisons.length > 0) {
+    html += '<table><thead><tr><th>N° livraison</th><th>Commande</th><th>Transporteur</th><th>Date prévue</th><th>Statut</th></tr></thead><tbody>';
+    livraisons.forEach(l => {
+      const cls = l.statut === 'livree' || l.statut === 'terminee' ? 'active' : l.statut === 'en_cours' ? 'pending' : 'normal';
+      html += `<tr><td>${l.numero_livraison || '-'}</td><td>${l.commande_id || '-'}</td><td>${l.transporteur || '-'}</td><td>${(l.date_prevue || '-').substring(0,10)}</td><td><span class="badge ${cls}">${l.statut || '-'}</span></td></tr>`;
+    });
+    html += '</tbody></table>';
+  } else {
+    html += '<div class="empty">Aucune livraison</div>';
+  }
+  html += '</div>';
+  
+  return html;
+}
+
+// Dashboard Agent Terrain
+async function dashboardTerrain() {
+  const { data: parcelles } = await sbClient.from('parcelles').select('*');
+  const { data: rapports } = await sbClient.from('rapports_terrain').select('*').order('created_at', { ascending: false }).limit(10);
+  const { data: meteo } = await sbClient.from('donnees_meteo').select('*').order('created_at', { ascending: false }).limit(1);
+  
+  const parcellesActives = parcelles?.filter(p => p.statut === 'actif' || p.statut === 'en_production')?.length || 0;
+  const parcellesMatures = parcelles?.filter(p => parseFloat(p.maturite_pct || 0) >= 80)?.length || 0;
+  const rapportsRecents = rapports?.length || 0;
+  
+  let html = `
+    <div class="stats-grid">
+      <div class="stat-card"><div class="label">Parcelles suivies</div><div class="value">${parcelles?.length || 0}</div></div>
+      <div class="stat-card"><div class="label">Parcelles actives</div><div class="value">${parcellesActives}</div></div>
+      <div class="stat-card"><div class="label">Canne prête à couper</div><div class="value">${parcellesMatures}</div></div>
+      <div class="stat-card"><div class="label">Rapports récents</div><div class="value">${rapportsRecents}</div></div>
+    </div>
+  `;
+  
+  // Météo
+  if (meteo && meteo.length > 0) {
+    const m = meteo[0];
+    html += `<div class="card"><h3 style="margin-bottom:16px;color:var(--green-dark)">Météo actuelle</h3>
+      <div style="display:flex;gap:30px;flex-wrap:wrap">
+        <div><span style="color:var(--gray);font-size:13px">Température</span><br><strong>${m.temperature_c || '-'}°C</strong></div>
+        <div><span style="color:var(--gray);font-size:13px">Humidité</span><br><strong>${m.humidite_pct || '-'}%</strong></div>
+        <div><span style="color:var(--gray);font-size:13px">Précipitations</span><br><strong>${m.precipitation_mm || '-'} mm</strong></div>
+      </div></div>`;
+  }
+  
+  // Rapports terrain
+  html += '<div class="card"><h3 style="margin-bottom:16px;color:var(--green-dark)">Rapports terrain récents</h3>';
+  if (rapports && rapports.length > 0) {
+    html += '<table><thead><tr><th>Parcelle</th><th>Activité</th><th>Observations</th><th>Date</th></tr></thead><tbody>';
+    rapports.forEach(r => {
+      html += `<tr><td>${r.parcelle_id || '-'}</td><td>${r.type_activite || '-'}</td><td>${(r.observations || '-').substring(0,50)}</td><td>${(r.created_at || '-').substring(0,10)}</td></tr>`;
+    });
+    html += '</tbody></table>';
+  } else {
+    html += '<div class="empty">Aucun rapport terrain</div>';
+  }
+  html += '</div>';
+  
+  return html;
+}
+
+// Dashboard Lecteur (vue d'ensemble en lecture seule)
+async function dashboardLecteur() {
+  const { data: params } = await sbClient.from('parametres_systeme').select('*');
+  const { data: parcelles } = await sbClient.from('parcelles').select('*');
+  const { data: employes } = await sbClient.from('employes').select('*');
+  const { data: production } = await sbClient.from('production_journaliere').select('*').order('date_prod', { ascending: false }).limit(5);
+  
+  const paramMap = {};
+  params?.forEach(p => paramMap[p.cle] = p.valeur);
+  const totalCanne = production?.reduce((sum, p) => sum + (parseFloat(p.canne_broyee_t) || 0), 0) || 0;
+  
+  let html = `
+    <div class="stats-grid">
+      <div class="stat-card"><div class="label">Superficie totale</div><div class="value">${paramMap.superficie_totale_ha || '9772'}<span class="unit"> ha</span></div></div>
+      <div class="stat-card"><div class="label">Production annuelle</div><div class="value">${paramMap.production_annuelle_t || '81287'}<span class="unit"> t</span></div></div>
+      <div class="stat-card"><div class="label">Employés</div><div class="value">${employes?.length || paramMap.nombre_employes || '-'}</div></div>
+      <div class="stat-card"><div class="label">Canne broyée (récents)</div><div class="value">${totalCanne.toFixed(0)}<span class="unit"> t</span></div></div>
+    </div>
+  `;
+  
+  html += '<div class="card"><h3 style="margin-bottom:16px;color:var(--green-dark)">Production récente</h3>';
+  if (production && production.length > 0) {
+    html += '<table><thead><tr><th>Date</th><th>Poste</th><th>Canne (t)</th><th>Sucre blanc (t)</th><th>Sucre roux (t)</th><th>Rendement</th></tr></thead><tbody>';
+    production.forEach(p => {
+      html += `<tr><td>${p.date_prod || '-'}</td><td>${p.shift || '-'}</td><td>${p.canne_broyee_t || 0}</td><td>${p.sucre_blanc_t || 0}</td><td>${p.sucre_roux_t || 0}</td><td>${p.rendement_pct || 0}%</td></tr>`;
+    });
+    html += '</tbody></table>';
+  } else {
+    html += '<div class="empty">Aucune donnée</div>';
+  }
+  html += '</div>';
+  
+  return html;
 }
 
 // GENERIC TABLE PAGE
