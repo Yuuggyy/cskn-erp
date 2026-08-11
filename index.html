@@ -1198,7 +1198,7 @@ async function loadTablePage(table, title, columns) {
     
     let html = `<h2>${title}</h2>`;
     
-    if (canWrite) {
+    if (canWrite && table !== 'projets_publics') {
       html += `<div class="add-btn"><button class="btn btn-primary" onclick="openAddModal('${table}', ${JSON.stringify(columns).replace(/"/g, '&quot;')})">+ Ajouter</button></div>`;
     }
     
@@ -1227,8 +1227,9 @@ async function loadTablePage(table, title, columns) {
           }
         });
         if (canWrite) {
+          const showEdit = table !== 'projets_publics';
           html += `<td style="white-space:nowrap">
-            <button class="btn btn-primary btn-sm" onclick="openEditModal('${table}', ${JSON.stringify(columns).replace(/"/g, '&quot;')}, '${row.id}')" style="margin-right:6px">Modifier</button>
+            ${showEdit ? `<button class="btn btn-primary btn-sm" onclick="openEditModal('${table}', ${JSON.stringify(columns).replace(/"/g, '&quot;')}, '${row.id}')" style="margin-right:6px">Modifier</button>` : ''}
             <button class="btn btn-danger btn-sm" onclick="deleteRecord('${table}', '${row.id}')">Supprimer</button>
           </td>`;
         }
