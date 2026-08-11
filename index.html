@@ -26,14 +26,15 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); co
 .sidebar .user-info .name { color: white; font-size: 14px; font-weight: 600; }
 .sidebar .user-info .role { color: var(--gold); font-size: 12px; text-transform: capitalize; }
 .sidebar .nav-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; }
-.sidebar .nav-scroll::-webkit-scrollbar { width: 4px; }
+.sidebar .nav-scroll::-webkit-scrollbar { width: 8px; }
 .sidebar .nav-scroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
-.sidebar .nav-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
-.sidebar .nav-item { padding: 11px 24px; color: rgba(255,255,255,0.75); cursor: pointer; font-size: 14px; transition: all 0.15s; border-left: 3px solid transparent; }
+.sidebar .nav-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.35); border-radius: 4px; }
+.sidebar .nav-scroll { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.35) transparent; }
+.sidebar .nav-item { padding: 9px 24px; color: rgba(255,255,255,0.75); cursor: pointer; font-size: 13.5px; transition: all 0.15s; border-left: 3px solid transparent; }
 .sidebar .nav-item:hover { background: rgba(255,255,255,0.08); color: white; }
 .sidebar .nav-item.active { background: var(--green); color: white; border-left: 3px solid var(--gold); font-weight: 600; }
 .sidebar .nav-item .icon { display: none; }
-.sidebar .logout { padding: 14px 24px; color: rgba(255,255,255,0.6); cursor: pointer; font-size: 13px; border-top: 1px solid rgba(255,255,255,0.1); flex-shrink: 0; }
+.sidebar .logout { padding: 14px 24px; color: rgba(255,255,255,0.6); cursor: pointer; font-size: 13px; border-top: 2px solid rgba(201,162,39,0.3); flex-shrink: 0; background: var(--green-dark); position: relative; z-index: 2; box-shadow: 0 -4px 8px rgba(0,0,0,0.2); }
 .sidebar .logout:hover { color: white; background: rgba(255,255,255,0.05); }
 .main { margin-left: 250px; padding: 32px 40px; min-height: 100vh; }
 .main h2 { color: var(--green-dark); margin-bottom: 24px; font-size: 22px; font-weight: 700; }
