@@ -563,7 +563,7 @@ async function loadPage(pageId) {
     switch(pageId) {
       case 'dashboard': await loadDashboard(); break;
       case 'parcelles': await loadTablePage('parcelles', 'Parcelles', ['code','nom','superficie_ha','variete_canne','maturite_pct','statut','secteur']); break;
-      case 'production': await loadTablePage('production_journaliere', 'Production Journalière', ['date_prod','shift','canne_broyee_t','sucre_blanc_t','sucre_roux_t','rendement_pct']); break;
+      case 'production': await loadTablePage('production_journaliere', 'Production Journalière', ['date_prod','canne_broyee_t','sucre_blanc_t','sucre_roux_t','rendement_pct']); break;
       case 'qualite': await loadTablePage('controles_qualite', 'Contrôles Qualité', ['date_controle','lot_reference','produit','humidite_pct','polarite','conforme']); break;
       case 'ventes': await loadTablePage('commandes_ventes', 'Commandes & Ventes', ['numero_cmd','client_nom','client_type','produit','quantite_t','prix_unitaire_usd','montant_total_usd','statut']); break;
       case 'livraisons': await loadTablePage('livraisons', 'Livraisons', ['numero_livraison','date_livraison','transporteur','destination','quantite_t','statut']); break;
@@ -622,17 +622,7 @@ async function loadDashboard() {
       html += await dashboardLecteur();
     }
     
-    // Notifications pour tous
-    const { data: notifications } = await sbClient.from('notifications').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(5);
-    html += '<div class="card"><h3 style="margin-bottom:16px;color:var(--green-dark)">Notifications récentes</h3>';
-    if (notifications && notifications.length > 0) {
-      notifications.forEach(n => {
-        html += `<div style="padding:12px;border-bottom:1px solid var(--border)"><strong>${n.titre || 'Notification'}</strong><br><span style="color:var(--gray);font-size:13px">${n.message || ''}</span></div>`;
-      });
-    } else {
-      html += '<div class="empty">Aucune notification</div>';
-    }
-    html += '</div>';
+    /* Notifications retirées - aucune fonctionnalité réelle derrière */
     
     main.innerHTML = html;
   } catch (err) {
@@ -672,9 +662,9 @@ async function dashboardAdmin() {
   // Production table
   html += '<div class="card"><h3 style="margin-bottom:16px;color:var(--green-dark)">Production récente (7 jours)</h3>';
   if (production && production.length > 0) {
-    html += '<div class="table-wrap"><table><thead><tr><th>Date</th><th>Poste</th><th>Canne (t)</th><th>Sucre blanc (t)</th><th>Sucre roux (t)</th><th>Mélasse (t)</th><th>Rendement</th></tr></thead><tbody>';
+    html += '<div class="table-wrap"><table><thead><tr><th>Date</th><th>Canne (t)</th><th>Sucre blanc (t)</th><th>Sucre roux (t)</th><th>Mélasse (t)</th><th>Rendement</th></tr></thead><tbody>';
     production.forEach(p => {
-      html += `<tr><td>${p.date_prod || '-'}</td><td>${p.shift || '-'}</td><td>${p.canne_broyee_t || 0}</td><td>${p.sucre_blanc_t || 0}</td><td>${p.sucre_roux_t || 0}</td><td>${p.melasse_t || 0}</td><td>${p.rendement_pct || 0}%</td></tr>`;
+      html += `<tr><td>${p.date_prod || '-'}</td><td>${p.canne_broyee_t || 0}</td><td>${p.sucre_blanc_t || 0}</td><td>${p.sucre_roux_t || 0}</td><td>${p.melasse_t || 0}</td><td>${p.rendement_pct || 0}%</td></tr>`;
     });
     html += '</tbody></table></div>';
   } else {
@@ -779,9 +769,9 @@ async function dashboardProduction() {
   // Production table
   html += '<div class="card"><h3 style="margin-bottom:16px;color:var(--green-dark)">Production récente (7 jours)</h3>';
   if (production && production.length > 0) {
-    html += '<div class="table-wrap"><table><thead><tr><th>Date</th><th>Poste</th><th>Canne (t)</th><th>Sucre blanc (t)</th><th>Sucre roux (t)</th><th>Mélasse (t)</th><th>Rendement</th></tr></thead><tbody>';
+    html += '<div class="table-wrap"><table><thead><tr><th>Date</th><th>Canne (t)</th><th>Sucre blanc (t)</th><th>Sucre roux (t)</th><th>Mélasse (t)</th><th>Rendement</th></tr></thead><tbody>';
     production.forEach(p => {
-      html += `<tr><td>${p.date_prod || '-'}</td><td>${p.shift || '-'}</td><td>${p.canne_broyee_t || 0}</td><td>${p.sucre_blanc_t || 0}</td><td>${p.sucre_roux_t || 0}</td><td>${p.melasse_t || 0}</td><td>${p.rendement_pct || 0}%</td></tr>`;
+      html += `<tr><td>${p.date_prod || '-'}</td><td>${p.canne_broyee_t || 0}</td><td>${p.sucre_blanc_t || 0}</td><td>${p.sucre_roux_t || 0}</td><td>${p.melasse_t || 0}</td><td>${p.rendement_pct || 0}%</td></tr>`;
     });
     html += '</tbody></table></div>';
   } else {
@@ -1081,9 +1071,9 @@ async function dashboardLecteur() {
   
   html += '<div class="card"><h3 style="margin-bottom:16px;color:var(--green-dark)">Production récente</h3>';
   if (production && production.length > 0) {
-    html += '<div class="table-wrap"><table><thead><tr><th>Date</th><th>Poste</th><th>Canne (t)</th><th>Sucre blanc (t)</th><th>Sucre roux (t)</th><th>Rendement</th></tr></thead><tbody>';
+    html += '<div class="table-wrap"><table><thead><tr><th>Date</th><th>Canne (t)</th><th>Sucre blanc (t)</th><th>Sucre roux (t)</th><th>Rendement</th></tr></thead><tbody>';
     production.forEach(p => {
-      html += `<tr><td>${p.date_prod || '-'}</td><td>${p.shift || '-'}</td><td>${p.canne_broyee_t || 0}</td><td>${p.sucre_blanc_t || 0}</td><td>${p.sucre_roux_t || 0}</td><td>${p.rendement_pct || 0}%</td></tr>`;
+      html += `<tr><td>${p.date_prod || '-'}</td><td>${p.canne_broyee_t || 0}</td><td>${p.sucre_blanc_t || 0}</td><td>${p.sucre_roux_t || 0}</td><td>${p.rendement_pct || 0}%</td></tr>`;
     });
     html += '</tbody></table></div>';
   } else {
